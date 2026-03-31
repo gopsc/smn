@@ -1,48 +1,51 @@
-# Flask 目录浏览器与用户认证系统
+# Flask 文件浏览器系统
 
-一个基于 Flask 的 Web 应用，提供目录浏览、文件管理和用户认证功能。
+一个功能完整的文件浏览器系统，支持用户认证、文件管理、HTTP/WebSocket代理和审计日志功能。
 
-## 功能特点
+## ✨ 主要功能
 
-- 📁 **目录浏览** - 浏览 `public` 目录下的文件和文件夹
-- 🔐 **用户认证** - 基于 Session 的登录/登出系统
-- 👑 **管理员功能** - 管理员可以管理用户（创建、禁用、删除）
-- 📤 **文件上传** - 登录用户可以上传文件
-- 🗑️ **文件删除** - 支持单个删除和批量删除
-- 🔑 **JWT 支持** - 可选的 JWT 令牌认证
-- 📱 **响应式界面** - 支持自定义 `__view.html` 模板
+### 🔐 用户管理
+- 用户注册和登录
+- 密码强度验证（长度、大小写、数字）
+- 登录失败限制（5次失败锁定15分钟）
+- 会话管理（24小时有效期）
+- 管理员权限控制
 
-## 快速开始
+### 📁 文件管理
+- 文件/目录浏览
+- 文件上传（支持多种格式）
+- 文件/目录重命名、移动、删除
+- 批量删除
+- 文件下载
+
+### 🔀 代理功能
+- HTTP/HTTPS代理请求
+- WebSocket代理（通过Socket.IO）
+- 目标地址白名单控制
+- 代理状态监控
+
+### 📊 审计与监控
+- 文件操作日志记录
+- 登录尝试记录
+- 系统统计信息
+- 健康检查接口
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Python 3.7+
+- pip
 
 ### 安装依赖
 
 ```bash
-pip install -r requirements.txt
+pip install flask flask-cors flask-sqlalchemy flask-limiter flask-socketio werkzeug requests websocket-client
 ```
 
-### 初始化数据库
+### 配置
 
-首次运行需要初始化数据库并创建默认管理员账户：
-
-```bash
-python app.py --init-db
-```
-
-默认管理员：
-- 用户名：`admin`
-- 密码：`admin123`
-
-### 启动服务
-
-```bash
-python app.py
-```
-
-服务默认运行在 `http://localhost:5000`
-
-### 配置文件
-
-创建 `config.ini` 文件自定义配置：
+创建 `config.ini` 配置文件（可选）：
 
 ```ini
 [server]
@@ -50,61 +53,295 @@ host = 0.0.0.0
 port = 5000
 
 [directory]
-root = public
+root = /path/to/your/files
+
+[ssl]
+enabled = false
+cert_file = cert.pem
+key_file = key.pem
+
+[cors]
+allowed_origins = http://localhost:5000,http://127.0.0.1:5000
+
+[security]
+max_content_length_mb = 100
+session_lifetime_hours = 24
+rate_limit_default = 200 per day;50 per hour
+
+[proxy]
+enabled = true
+allowed_targets = http://localhost:8000,http://localhost:8080,ws://localhost:8765
 ```
 
-## 项目结构
+### 初始化数据库
 
-```
-.
-├── app.py              # 主程序
-├── requirements.txt    # 依赖列表
-├── config.ini         # 配置文件（可选）
-├── public/            # 根目录（自动创建）
-├── users.db           # SQLite 数据库
-├── cert.pem           # SSL 证书（可选）
-└── key.pem            # SSL 私钥（可选）
+```bash
+python app.py --init-db
 ```
 
-## API 接口
+这将创建SQLite数据库和默认管理员账户：
+- 用户名：`admin`
+- 密码：`Admin@123456`
+
+**⚠️ 重要：请在生产环境中立即修改默认密码！**
+
+### 启动服务
+
+```bash
+# 使用配置文件启动
+python app.py --config config.ini
+
+# 不使用配置文件（文件系统功能需配置）
+python app.py
+```
+
+## 📖 API文档
 
 ### 认证相关
 
-| 方法 | 端点 | 说明 | 权限 |
-|------|------|------|------|
-| POST | `/api/login` | 用户登录 | 公开 |
-| POST | `/api/logout` | 用户登出 | 已登录 |
-| GET | `/api/check-auth` | 检查认证状态 | 公开 |
-| POST | `/api/change-password` | 修改密码 | 已登录 |
-| POST | `/api/register` | 创建用户 | 管理员 |
+#### 用户登录
+```http
+POST /api/login
+Content-Type: application/json
 
-### 用户管理（管理员）
+{
+    "username": "admin",
+    "password": "Admin@123456"
+}
+```
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/users` | 获取用户列表 |
-| DELETE | `/api/users/<id>` | 删除用户 |
-| POST | `/api/users/<id>/toggle-status` | 启用/禁用用户 |
+#### 用户注册（需管理员权限）
+```http
+POST /api/register
+Authorization: (会话Cookie)
 
-### 文件操作
+{
+    "username": "newuser",
+    "password": "Password123"
+}
+```
 
-| 方法 | 端点 | 说明 | 权限 |
-|------|------|------|------|
-| GET | `/` 或 `/<path>` | 浏览文件/目录 | 公开 |
-| GET | `/api/files` | 获取文件列表 | 公开 |
-| POST | `/upload` | 上传文件 | 已登录 |
-| POST | `/delete` | 删除文件/目录 | 已登录 |
-| POST | `/delete-multiple` | 批量删除 | 已登录 |
+#### 修改密码
+```http
+POST /api/change-password
+Authorization: (会话Cookie)
 
-## 目录浏览
+{
+    "old_password": "Admin@123456",
+    "new_password": "NewPassword123"
+}
+```
 
-- 访问根路径 `/` 显示 `public` 目录内容
-- 如果存在 `public/__view.html`，将作为目录模板使用
-- 模板中可通过 `window.__INITIAL_DATA__` 获取文件列表数据
+### 文件管理
 
-## 安全说明
+#### 获取文件列表
+```http
+GET /api/files
+Authorization: (会话Cookie)
+```
 
-1. 生产环境请修改 `SECRET_KEY`
-2. 首次登录后请修改默认管理员密码
-3. 建议在生产环境使用 HTTPS（配置 `cert.pem` 和 `key.pem`）
-4. 所有文件操作都有路径安全检查，防止目录遍历攻击
+#### 上传文件
+```http
+POST /upload
+Authorization: (会话Cookie)
+Content-Type: multipart/form-data
+
+file: (文件)
+path: (可选) 上传目录
+```
+
+#### 创建文件夹
+```http
+POST /api/folders
+Authorization: (会话Cookie)
+
+{
+    "name": "new_folder",
+    "path": "parent/path"  // 可选
+}
+```
+
+#### 重命名
+```http
+POST /api/rename
+Authorization: (会话Cookie)
+
+{
+    "old_path": "oldname.txt",
+    "new_name": "newname.txt",
+    "type": "file"  // 或 "dir"
+}
+```
+
+#### 移动文件/目录
+```http
+POST /api/move
+Authorization: (会话Cookie)
+
+{
+    "source_paths": ["file1.txt", "folder1"],
+    "target_path": "destination/"
+}
+```
+
+#### 删除（单个）
+```http
+POST /delete
+Authorization: (会话Cookie)
+
+{
+    "name": "filename.txt",
+    "recursive": false  // 删除目录时是否递归
+}
+```
+
+#### 批量删除
+```http
+POST /delete-multiple
+Authorization: (会话Cookie)
+
+{
+    "items": ["file1.txt", "folder1"],
+    "recursive": false
+}
+```
+
+### 代理功能
+
+#### HTTP代理
+```http
+GET/POST/PUT/DELETE /proxy/<target_url>
+Authorization: (会话Cookie)
+
+# 示例：
+GET /proxy/http://localhost:8000/api/data
+```
+
+#### WebSocket代理（通过Socket.IO）
+```javascript
+// 连接WebSocket
+const socket = io('http://localhost:5000');
+
+// 连接目标WebSocket
+socket.emit('ws_connect', {
+    target_url: 'ws://localhost:8765'
+});
+
+// 发送消息
+socket.emit('ws_send', {
+    message: 'Hello WebSocket!'
+});
+
+// 接收消息
+socket.on('ws_message', (data) => {
+    console.log('Received:', data);
+});
+```
+
+### 管理功能（需管理员权限）
+
+#### 获取用户列表
+```http
+GET /api/users
+```
+
+#### 删除用户
+```http
+DELETE /api/users/{user_id}
+```
+
+#### 切换用户状态
+```http
+POST /api/users/{user_id}/toggle-status
+```
+
+#### 获取审计日志
+```http
+GET /api/audit/file-operations?page=1&per_page=50
+GET /api/audit/login-attempts?page=1&per_page=50
+```
+
+#### 系统统计
+```http
+GET /api/stats
+```
+
+### 系统监控
+
+#### 健康检查
+```http
+GET /health
+```
+
+#### 文件系统状态
+```http
+GET /api/filesystem-status
+```
+
+#### 代理状态
+```http
+GET /api/proxy/status
+Authorization: (会话Cookie)
+```
+
+## 🔧 配置说明
+
+### 安全配置
+- **密码策略**：最小长度8，必须包含大小写字母和数字
+- **登录限制**：5次失败后锁定15分钟
+- **会话超时**：24小时
+- **文件上传限制**：默认100MB
+
+### 代理安全
+- 目标地址白名单控制
+- 代理操作需登录认证
+- 请求头自动添加用户标识（`X-Proxy-User`, `X-Proxy-User-ID`）
+
+## 📝 日志文件
+
+系统自动生成 `app.log` 文件，采用轮转日志：
+- 最大文件大小：10MB
+- 保留备份数：10个
+
+## 🔒 安全建议
+
+1. **立即修改默认密码**：首次启动后立即修改admin密码
+2. **使用HTTPS**：生产环境务必启用SSL
+3. **限制代理目标**：仅添加可信的代理目标到白名单
+4. **定期审计日志**：检查异常操作和登录尝试
+5. **备份数据库**：定期备份 `instance/users.db` 文件
+6. **限制访问IP**：可通过防火墙限制访问来源
+
+## 🐛 故障排除
+
+### 数据库连接问题
+```bash
+# 检查数据库文件权限
+ls -la instance/users.db
+
+# 手动验证数据库
+sqlite3 instance/users.db "SELECT * FROM users;"
+```
+
+### 文件系统权限
+确保配置的根目录具有正确的读写权限：
+```bash
+chmod 755 /path/to/your/files
+```
+
+### 代理连接问题
+- 检查目标地址是否在白名单中
+- 确认目标服务正在运行
+- 查看防火墙设置
+
+## 📄 许可证
+
+本项目遵循MIT许可证。
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request！
+
+## 📧 联系方式
+
+如有问题，请通过GitHub Issues联系。
