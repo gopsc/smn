@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f0f0f0; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 400px; 
+            width: 100%;
+            margin: 0 auto; 
+            background-color: white; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
+        }
+        h1 { 
+            color: #333; 
+            margin-bottom: 30px; 
+            text-align: center;
+            font-size: 24px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #0052a3;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .message.success {
+            display: block;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            display: block;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message.warning {
+            display: block;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .message.info {
+            display: block;
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .message.locked {
+            display: block;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            font-weight: bold;
+        }
+        .links {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .links a {
+            color: #0066cc;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 14px;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #0066cc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 4px;
+            color: #004085;
+            font-size: 14px;
+        }
+        .info-box p {
+            margin: 5px 0;
+        }
+        .info-box .title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #003366;
+        }
+        .note-box {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 4px;
+            color: #856404;
+            font-size: 14px;
+            text-align: center;
+        }
+        .contact-admin {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px dashed #6c757d;
+            font-size: 14px;
+            text-align: center;
+            color: #6c757d;
+        }
+        .failed-attempts {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 4px;
+            color: #856404;
+            font-size: 13px;
+            display: none;
+        }
+        .failed-attempts.show {
+            display: block;
+        }
+        .security-note {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 文件浏览器</h1>
+
+        <!-- 登录表单 -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="loginUsername" required autofocus>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="loginPassword" required>
+            </div>
+
+            <!-- 失败尝试提示 -->
+            <div id="failedAttempts" class="failed-attempts"></div>
+
+            <button type="submit" class="btn" id="loginBtn">登录</button>
+        </form>
+
+        <div id="message" class="message"></div>
+
+        <!-- 安全提示 -->
+        <div class="security-note">
+            ⚠️ 5次失败尝试将锁定账户15分钟
+        </div>
+
+        <!-- 注册功能关闭提示 -->
+        <div class="note-box">
+            ⚠️ 注册功能已关闭，请联系管理员创建账号
+        </div>
+
+        <!-- 联系管理员信息 -->
+        <div class="contact-admin">
+            📧 管理员邮箱: 1776177662@qq.com<br>
+            📞 联系电话: 请咨询系统管理员
+        </div>
+
+        <div class="links">
+            <a href="/">返回首页</a>
+            <a href="#" onclick="showHelp(); return false;">帮助</a>
+        </div>
+
+        <!-- 系统说明 -->
+        <div class="info-box">
+            <p class="title">ℹ️ 系统说明</p>
+            <p>• 本系统需要登录才能访问文件</p>
+            <p>• 登录后可上传和下载文件</p>
+            <p>• 如有问题请联系系统管理员</p>
+            <p style="margin-top: 10px; color: #666;">版本: 2.0.0</p>
+        </div>
+    </div>
+
+    <script>
+        // 显示消息
+        function showMessage(type, text) {
+            const message = document.getElementById('message');
+            message.className = `message ${type}`;
+            message.textContent = text;
+            
+            // 3秒后自动隐藏成功消息
+            if (type === 'success') {
+                setTimeout(() => {
+                    message.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // 显示失败尝试信息
+        function showFailedAttempts(attempts, lockedUntil) {
+            const container = document.getElementById('failedAttempts');
+            
+            if (lockedUntil) {
+                const lockTime = new Date(lockedUntil).toLocaleTimeString();
+                container.textContent = `🔒 账户已锁定，将在 ${lockTime} 后解锁`;
+                container.className = 'failed-attempts show';
+            } else if (attempts > 0) {
+                const remaining = 5 - attempts;
+                container.textContent = `⚠️ 登录失败 ${attempts}/5 次，剩余 ${remaining} 次尝试机会`;
+                container.className = 'failed-attempts show';
+            } else {
+                container.className = 'failed-attempts';
+                container.textContent = '';
+            }
+        }
+
+        // 设置按钮加载状态
+        function setButtonLoading(buttonId, isLoading) {
+            const btn = document.getElementById(buttonId);
+            if (isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading"></span> 登录中...';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '登录';
+            }
+        }
+
+        // 显示帮助信息
+        function showHelp() {
+            showMessage('info', '默认管理员账号: admin\n密码: Admin@123456\n首次登录请修改密码');
+        }
+
+        // 处理登录
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!username || !password) {
+                showMessage('error', '请输入用户名和密码');
+                return;
+            }
+
+            setButtonLoading('loginBtn', true);
+
+            try {
+                console.log('Sending login request for user:', username);
+                
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+                console.log('Login response:', response.status, data);
+
+                if (response.ok) {
+                    showMessage('success', '登录成功！正在跳转...');
+                    
+                    // 存储token（如果需要）
+                    if (data.token) {
+                        localStorage.setItem('token', data.token);
+                    }
+                    
+                    // 存储用户信息
+                    if (data.user) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    }
+                    
+                    // 延迟跳转，让用户看到成功消息
+                    setTimeout(() => {
+                        // 根据后端配置，如果文件系统未启用，跳转到不同页面
+                        if (data.filesystem_enabled) {
+                            // 文件系统已启用，跳转到首页
+                            window.location.href = '/';
+                        } else {
+                            // 文件系统未启用，跳转到仪表盘或用户管理页面
+                            window.location.href = '/api/users';
+                        }
+                    }, 1500);
+                } else {
+                    // 处理错误响应
+                    if (response.status === 403) {
+                        if (data.error && data.error.includes('锁定')) {
+                            showMessage('locked', '🔒 ' + data.error);
+                        } else {
+                            showMessage('error', data.error || '账户已被禁用');
+                        }
+                    } else if (response.status === 401) {
+                        showMessage('error', data.error || '用户名或密码错误');
+                        
+                        // 尝试从响应中获取失败次数
+                        if (data.failed_attempts !== undefined) {
+                            showFailedAttempts(data.failed_attempts);
+                        }
+                    } else if (response.status === 429) {
+                        showMessage('warning', '登录尝试过于频繁，请稍后再试');
+                    } else {
+                        showMessage('error', data.error || '登录失败，请稍后重试');
+                    }
+                    
+                    // 密码输入框获得焦点
+                    document.getElementById('loginPassword').focus();
+                    document.getElementById('loginPassword').select();
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('error', '网络错误，请检查服务器连接');
+            } finally {
+                setButtonLoading('loginBtn', false);
+            }
+        }
+
+        // 检查是否已登录
+        async function checkAuth() {
+            try {
+                console.log('Checking authentication status...');
+                
+                const response = await fetch('/api/check-auth', {
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                console.log('Auth check response:', data);
+
+                if (data.authenticated) {
+                    showMessage('info', '您已登录，正在跳转...');
+                    
+                    setTimeout(() => {
+                        if (data.filesystem_enabled) {
+                            window.location.href = '/';
+                        } else {
+                            window.location.href = '/api/users';
+                        }
+                    }, 1500);
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                // 如果是网络错误，可能是服务器未启动
+                if (error.message.includes('fetch')) {
+                    showMessage('error', '无法连接到服务器，请确认服务是否已启动');
+                }
+            }
+        }
+
+        // 清除表单缓存
+        function clearFormCache() {
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+        }
+
+        // 回车键快速登录
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const form = document.getElementById('loginForm');
+                if (form && document.activeElement !== document.getElementById('loginBtn')) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            }
+        });
+
+        // 输入框获得焦点时清除错误消息
+        document.getElementById('loginUsername').addEventListener('focus', function() {
+            document.getElementById('message').style.display = 'none';
+            document.getElementById('failedAttempts').className = 'failed-attempts';
+        });
+
+        document.getElementById('loginPassword').addEventListener('focus', function() {
+            document.getElementById('message').style.display = 'none';
+            document.getElementById('failedAttempts').className = 'failed-attempts';
+        });
+
+        // 页面加载时检查登录状态
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Login page loaded');
+            
+            // 先清除可能存在的旧token
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            checkAuth();
+            clearFormCache();
+            
+            // 检查URL参数中是否有错误信息
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            if (error) {
+                showMessage('error', decodeURIComponent(error));
+            }
+        });
+
+        // 防止浏览器自动填充
+        window.onload = function() {
+            setTimeout(function() {
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+            }, 100);
+        };
+    </script>
+</body>
+</html>
