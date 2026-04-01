@@ -625,6 +625,30 @@ def proxy_required(f):
 def proxy_request(target):
     try:
         method = request.method
+        
+        # 检查是否是 WebSocket 升级请求
+        upgrade = request.headers.get('Upgrade', '').lower()
+        connection = request.headers.get('Connection', '').lower()
+        
+        # 如果是 WebSocket 升级请求，返回 426 让客户端通过 Socket.IO 连接
+        if upgrade == 'websocket' and 'upgrade' in connection:
+            logger.info(f"WebSocket upgrade request detected, redirecting to Socket.IO")
+            # 返回 426 Upgrade Required，并在响应头中指示使用 Socket.IO
+            response = Response('WebSocket connections must use Socket.IO', status=426)
+            response.headers['Upgrade'] = 'websocket'
+            response.headers['Connection'] = 'Upgrade'
+            response.headers['X-WebSocket-Proxy'] = 'socketio'
+            response.headers['X-SocketIO-Endpoint'] = '/socket.io'
+            return response
+        
+        # 处理 OPTIONS 预检请求
+        if method == 'OPTIONS':
+            response = Response()
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Proxy-User, X-User-ID'
+            return response
+        
         headers = {}
         excluded_headers = ['host', 'connection', 'content-length', 'transfer-encoding', 'accept-encoding']
         
@@ -646,6 +670,7 @@ def proxy_request(target):
         elif not target_url.startswith('http://') and not target_url.startswith('https://'):
             target_url = 'http://' + target_url
         
+        # 检查是否允许代理
         is_allowed = False
         for allowed_target in PROXY_ALLOWED_TARGETS:
             if target_url.startswith(allowed_target):
@@ -658,24 +683,55 @@ def proxy_request(target):
         logger.info(f"User {session.get('username')} proxy {method} request to {target_url}")
         
         try:
-            response = requests.request(
-                method=method,
-                url=target_url,
-                headers=headers,
-                params=query_params,
-                data=data,
-                timeout=30,
-                allow_redirects=True,
-                verify=False
-            )
-            
-            response_headers = {}
-            excluded_response_headers = ['content-encoding', 'transfer-encoding', 'connection']
-            for key, value in response.headers.items():
-                if key.lower() not in excluded_response_headers:
-                    response_headers[key] = value
-            
-            return Response(response.content, status=response.status_code, headers=response_headers)
+            # 对于流式响应，使用流式处理
+            if method in ['GET', 'POST'] and request.headers.get('Accept', '').find('text-event-stream') >= 0:
+                # 流式响应
+                response = requests.request(
+                    method=method,
+                    url=target_url,
+                    headers=headers,
+                    params=query_params,
+                    data=data,
+                    timeout=30,
+                    allow_redirects=True,
+                    verify=False,
+                    stream=True
+                )
+                
+                def generate():
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            yield chunk
+                
+                response_headers = {}
+                excluded_response_headers = ['content-encoding', 'transfer-encoding', 'connection']
+                for key, value in response.headers.items():
+                    if key.lower() not in excluded_response_headers:
+                        response_headers[key] = value
+                
+                return Response(stream_with_context(generate()), 
+                              status=response.status_code, 
+                              headers=response_headers)
+            else:
+                # 普通响应
+                response = requests.request(
+                    method=method,
+                    url=target_url,
+                    headers=headers,
+                    params=query_params,
+                    data=data,
+                    timeout=30,
+                    allow_redirects=True,
+                    verify=False
+                )
+                
+                response_headers = {}
+                excluded_response_headers = ['content-encoding', 'transfer-encoding', 'connection']
+                for key, value in response.headers.items():
+                    if key.lower() not in excluded_response_headers:
+                        response_headers[key] = value
+                
+                return Response(response.content, status=response.status_code, headers=response_headers)
             
         except requests.exceptions.Timeout:
             return jsonify({'error': '代理请求超时'}), 504
@@ -687,7 +743,7 @@ def proxy_request(target):
     except Exception as e:
         logger.error(f"Proxy error: {str(e)}")
         return jsonify({'error': f'代理处理失败: {str(e)}'}), 500
-
+        
 # ==================== 代理状态接口 ====================
 @app.route('/api/proxy/status', methods=['GET'])
 @login_required
@@ -736,6 +792,516 @@ def test_proxy_target():
     except Exception as e:
         logger.error(f"Proxy test error: {str(e)}")
         return jsonify({'error': f'测试失败: {str(e)}'}), 500
+
+# ==================== 新增filelist接口 ====================
+@app.route('/api/filelist', methods=['GET'])
+@login_required
+@filesystem_required
+def get_file_list():
+    """
+    获取指定目录下的文件列表，返回JSON格式
+    可通过path参数指定子目录，默认为根目录
+    """
+    try:
+        # 获取请求参数
+        path = request.args.get('path', '')
+        
+        # 构建完整路径
+        full_path = safe_path_join(HTML_ROOT_DIR, path)
+        
+        if not os.path.exists(full_path):
+            raise APIError(f'目录不存在: {full_path}', 404)
+        
+        if not os.path.isdir(full_path):
+            raise APIError(f'路径不是一个目录: {full_path}', 400)
+        
+        # 获取目录内容
+        items = []
+        for item in os.listdir(full_path):
+            item_path = os.path.join(full_path, item)
+            
+            # 跳过Python缓存目录
+            if item == '__pycache__':
+                continue
+                
+            item_stat = os.stat(item_path)
+            
+            # 判断是否为目录
+            is_dir = os.path.isdir(item_path)
+            
+            # 获取相对路径
+            if path:
+                item_rel_path = os.path.join(path, item)
+            else:
+                item_rel_path = item
+            
+            # 获取文件大小
+            size = 0
+            if not is_dir:
+                size = item_stat.st_size
+            
+            # 获取修改时间
+            modified_time = datetime.datetime.fromtimestamp(item_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 添加到列表
+            items.append({
+                'name': item,
+                'type': 'dir' if is_dir else 'file',
+                'path': item_rel_path,
+                'size': size,
+                'modified': modified_time,
+                'permissions': oct(item_stat.st_mode)[-3:],
+                'owner_uid': item_stat.st_uid,
+                'owner_gid': item_stat.st_gid
+            })
+        
+        # 按类型和名称排序（目录在前，然后按名称字母顺序）
+        items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
+        
+        return jsonify({
+            'success': True,
+            'path': path or '/',
+            'parent_path': os.path.dirname(path) if path and os.path.dirname(path) != '/' else '',
+            'items': items,
+            'total_items': len(items),
+            'total_dirs': sum(1 for item in items if item['type'] == 'dir'),
+            'total_files': sum(1 for item in items if item['type'] == 'file')
+        })
+        
+    except APIError as e:
+        return jsonify({'error': e.message}), e.status_code
+    except Exception as e:
+        logger.error(f"Get file list error: {str(e)}")
+        return jsonify({'error': f'获取文件列表失败: {str(e)}'}), 500
+
+# ==================== 文件读取和保存视图 ====================
+@app.route('/file-editor', methods=['GET'])
+@login_required
+@filesystem_required
+def file_editor_view():
+    """文件编辑器视图，用于读取和保存文件"""
+    # 返回一个简单的HTML页面用于文件编辑
+    html_content = '''
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件编辑器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 15px 20px;
+        }
+        .editor-container {
+            display: flex;
+            height: 600px;
+        }
+        .sidebar {
+            width: 250px;
+            border-right: 1px solid #ddd;
+            background-color: #f9f9f9;
+            overflow-y: auto;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-list li {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .file-list li:hover {
+            background-color: #e9e9e9;
+        }
+        .file-list li.selected {
+            background-color: #007bff;
+            color: white;
+        }
+        .file-list li.dir::before {
+            content: "📁 ";
+        }
+        .file-list li.file::before {
+            content: "📄 ";
+        }
+        .editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .editor-header {
+            padding: 10px 15px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-path {
+            font-weight: bold;
+            color: #555;
+        }
+        .editor-actions button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .editor-actions button:hover {
+            background-color: #0056b3;
+        }
+        .editor-actions button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        textarea {
+            flex: 1;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            resize: none;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .status-bar {
+            padding: 10px 15px;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #666;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 4px;
+            color: white;
+            z-index: 1000;
+        }
+        .notification.success {
+            background-color: #28a745;
+        }
+        .notification.error {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>文件编辑器</h1>
+        </div>
+        <div class="editor-container">
+            <div class="sidebar">
+                <ul class="file-list" id="fileList"></ul>
+            </div>
+            <div class="editor-area">
+                <div class="editor-header">
+                    <div class="file-path" id="filePath">请选择一个文件</div>
+                    <div class="editor-actions">
+                        <button id="saveBtn" disabled>保存</button>
+                        <button id="refreshBtn">刷新</button>
+                    </div>
+                </div>
+                <textarea id="fileContent" placeholder="选择一个文件开始编辑..."></textarea>
+                <div class="status-bar" id="statusBar">
+                    就绪
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script>
+        let currentFile = null;
+        let unsavedChanges = false;
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // 加载文件列表
+        async function loadFileList(path = '') {
+            try {
+                const response = await fetch(`/api/filelist?path=${encodeURIComponent(path)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '加载文件列表失败');
+                }
+                
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                
+                // 添加上级目录选项
+                if (path) {
+                    const parentItem = document.createElement('li');
+                    parentItem.textContent = '.. (上级目录)';
+                    parentItem.classList.add('dir');
+                    parentItem.onclick = () => loadFileList(data.parent_path);
+                    fileList.appendChild(parentItem);
+                }
+                
+                // 添加文件和目录项
+                data.items.forEach(item => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = item.name;
+                    listItem.classList.add(item.type);
+                    
+                    if (item.type === 'dir') {
+                        listItem.onclick = () => loadFileList(item.path);
+                    } else {
+                        listItem.onclick = () => loadFile(item.path);
+                    }
+                    
+                    fileList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('加载文件列表失败:', error);
+                showNotification(`加载文件列表失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 加载文件内容
+        async function loadFile(filePath) {
+            try {
+                // 清除之前的文件内容
+                document.getElementById('fileContent').value = '';
+                document.getElementById('filePath').textContent = filePath;
+                
+                // 检查是否为文本文件
+                const ext = filePath.toLowerCase().split('.').pop();
+                const textExtensions = ['txt', 'html', 'htm', 'js', 'css', 'json', 'xml', 'md', 'py', 'java', 'cpp', 'c', 'h', 'php', 'sql', 'sh', 'bat', 'ini', 'cfg', 'log'];
+                
+                if (!textExtensions.includes(ext)) {
+                    throw new Error('非文本文件不支持编辑');
+                }
+                
+                // 读取文件内容
+                const response = await fetch(`/read-file/${encodeURIComponent(filePath)}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '读取文件失败');
+                }
+                
+                document.getElementById('fileContent').value = data.content;
+                currentFile = filePath;
+                unsavedChanges = false;
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('statusBar').textContent = `已加载: ${filePath}`;
+                
+                // 高亮选中的文件
+                document.querySelectorAll('.file-list li').forEach(li => {
+                    li.classList.remove('selected');
+                });
+                event.target.classList.add('selected');
+            } catch (error) {
+                console.error('加载文件失败:', error);
+                showNotification(`加载文件失败: ${error.message}`, 'error');
+                document.getElementById('saveBtn').disabled = true;
+            }
+        }
+
+        // 保存文件
+        async function saveFile() {
+            if (!currentFile) {
+                showNotification('没有打开的文件', 'error');
+                return;
+            }
+            
+            try {
+                const content = document.getElementById('fileContent').value;
+                
+                const response = await fetch('/save-file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: currentFile,
+                        content: content
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '保存文件失败');
+                }
+                
+                unsavedChanges = false;
+                document.getElementById('statusBar').textContent = `已保存: ${currentFile}`;
+                showNotification('文件保存成功');
+            } catch (error) {
+                console.error('保存文件失败:', error);
+                showNotification(`保存文件失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFileList();
+            
+            document.getElementById('saveBtn').addEventListener('click', saveFile);
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                if (currentFile) {
+                    loadFile(currentFile);
+                } else {
+                    loadFileList();
+                }
+            });
+            
+            // 监听内容变化
+            document.getElementById('fileContent').addEventListener('input', () => {
+                if (currentFile && !unsavedChanges) {
+                    unsavedChanges = true;
+                    document.getElementById('statusBar').textContent = '有未保存的更改';
+                }
+            });
+            
+            // 页面卸载前检查是否有未保存的更改
+            window.addEventListener('beforeunload', (e) => {
+                if (unsavedChanges) {
+                    e.preventDefault();
+                    e.returnValue = '您有未保存的更改，确定要离开吗？';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+'''
+    return Response(html_content, mimetype='text/html')
+
+@app.route('/read-file/<path:file_path>', methods=['GET'])
+@login_required
+@filesystem_required
+def read_file(file_path):
+    """读取文件内容"""
+    try:
+        full_path = safe_path_join(HTML_ROOT_DIR, file_path)
+        
+        if not os.path.exists(full_path):
+            raise APIError(f'文件不存在: {file_path}', 404)
+        
+        if not os.path.isfile(full_path):
+            raise APIError(f'路径不是文件: {file_path}', 400)
+        
+        # 检查文件大小，防止加载过大的文件
+        file_size = os.path.getsize(full_path)
+        if file_size > 10 * 1024 * 1024:  # 10MB
+            raise APIError('文件过大，无法编辑', 400)
+        
+        with open(full_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        log_file_operation(
+            user_id=session['user_id'],
+            username=session['username'],
+            operation='read_file',
+            filename=os.path.basename(full_path),
+            file_path=full_path,
+            file_size=file_size
+        )
+        
+        return jsonify({
+            'success': True,
+            'content': content,
+            'path': file_path,
+            'size': file_size
+        })
+        
+    except APIError as e:
+        return jsonify({'error': e.message}), e.status_code
+    except UnicodeDecodeError:
+        return jsonify({'error': '文件不是文本文件或编码不支持'}), 400
+    except Exception as e:
+        logger.error(f"Read file error: {str(e)}")
+        return jsonify({'error': f'读取文件失败: {str(e)}'}), 500
+
+@app.route('/save-file', methods=['POST'])
+@login_required
+@filesystem_required
+def save_file():
+    """保存文件内容"""
+    try:
+        data = request.get_json()
+        if not data:
+            raise APIError('请提供JSON格式的数据', 400)
+        
+        file_path = data.get('path')
+        content = data.get('content', '')
+        
+        if not file_path:
+            raise APIError('请提供文件路径', 400)
+        
+        full_path = safe_path_join(HTML_ROOT_DIR, file_path)
+        
+        # 确保文件所在的目录存在
+        file_dir = os.path.dirname(full_path)
+        if file_dir:
+            os.makedirs(file_dir, exist_ok=True)
+        
+        # 写入文件
+        with open(full_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        file_size = len(content.encode('utf-8'))
+        
+        log_file_operation(
+            user_id=session['user_id'],
+            username=session['username'],
+            operation='save_file',
+            filename=os.path.basename(full_path),
+            file_path=full_path,
+            file_size=file_size
+        )
+        
+        return jsonify({
+            'success': True,
+            'path': file_path,
+            'size': file_size,
+            'message': '文件保存成功'
+        })
+        
+    except APIError as e:
+        return jsonify({'error': e.message}), e.status_code
+    except Exception as e:
+        logger.error(f"Save file error: {str(e)}")
+        return jsonify({'error': f'保存文件失败: {str(e)}'}), 500
 
 # ==================== 数据库初始化 ====================
 def init_database():
