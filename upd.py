@@ -65,7 +65,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = datetime.timedelta(hours=24)
     
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024
-    UPLOAD_EXTENSIONS = ['.txt', '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.rar', '.mp3', '.mp4']
+    # 移除文件类型限制，允许所有文件
+    UPLOAD_EXTENSIONS = None  # 设为 None 表示不限制
     
     PASSWORD_MIN_LENGTH = 8
     PASSWORD_REQUIRE_UPPERCASE = True
@@ -534,8 +535,9 @@ def safe_path_join(base_dir, user_path):
     return full_path_real
 
 def allowed_file(filename):
-    ext = os.path.splitext(filename)[1].lower()
-    return ext in app.config['UPLOAD_EXTENSIONS']
+    """移除文件类型限制，允许所有文件"""
+    # 不限制文件类型，总是返回 True
+    return True
 
 def is_valid_folder_name(folder_name):
     if not folder_name or not folder_name.strip():
@@ -793,7 +795,7 @@ def test_proxy_target():
         logger.error(f"Proxy test error: {str(e)}")
         return jsonify({'error': f'测试失败: {str(e)}'}), 500
 
-# ==================== 新增filelist接口 ====================
+# ==================== 文件列表接口 ====================
 @app.route('/api/filelist', methods=['GET'])
 @login_required
 @filesystem_required
@@ -1101,14 +1103,6 @@ def file_editor_view():
                 document.getElementById('fileContent').value = '';
                 document.getElementById('filePath').textContent = filePath;
                 
-                // 检查是否为文本文件
-                const ext = filePath.toLowerCase().split('.').pop();
-                const textExtensions = ['txt', 'html', 'htm', 'js', 'css', 'json', 'xml', 'md', 'py', 'java', 'cpp', 'c', 'h', 'php', 'sql', 'sh', 'bat', 'ini', 'cfg', 'log'];
-                
-                if (!textExtensions.includes(ext)) {
-                    throw new Error('非文本文件不支持编辑');
-                }
-                
                 // 读取文件内容
                 const response = await fetch(`/read-file/${encodeURIComponent(filePath)}`);
                 const data = await response.json();
@@ -1225,8 +1219,28 @@ def read_file(file_path):
         if file_size > 10 * 1024 * 1024:  # 10MB
             raise APIError('文件过大，无法编辑', 400)
         
-        with open(full_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # 尝试多种编码方式读取文件
+        content = None
+        encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1', 'cp1252']
+        
+        for encoding in encodings:
+            try:
+                with open(full_path, 'r', encoding=encoding) as f:
+                    content = f.read()
+                break
+            except UnicodeDecodeError:
+                continue
+            except Exception:
+                continue
+        
+        if content is None:
+            # 如果所有文本编码都失败，尝试以二进制方式读取并显示十六进制
+            with open(full_path, 'rb') as f:
+                binary_data = f.read(1024)  # 只读取前1KB
+                content = f"二进制文件，无法以文本方式显示。前 {len(binary_data)} 字节的十六进制表示:\n"
+                content += ' '.join(f'{b:02x}' for b in binary_data[:100])
+                if len(binary_data) > 100:
+                    content += ' ...'
         
         log_file_operation(
             user_id=session['user_id'],
@@ -1241,13 +1255,12 @@ def read_file(file_path):
             'success': True,
             'content': content,
             'path': file_path,
-            'size': file_size
+            'size': file_size,
+            'is_binary': content.startswith('二进制文件')
         })
         
     except APIError as e:
         return jsonify({'error': e.message}), e.status_code
-    except UnicodeDecodeError:
-        return jsonify({'error': '文件不是文本文件或编码不支持'}), 400
     except Exception as e:
         logger.error(f"Read file error: {str(e)}")
         return jsonify({'error': f'读取文件失败: {str(e)}'}), 500
@@ -1275,11 +1288,16 @@ def save_file():
         if file_dir:
             os.makedirs(file_dir, exist_ok=True)
         
-        # 写入文件
-        with open(full_path, 'w', encoding='utf-8') as f:
-            f.write(content)
+        # 尝试以UTF-8编码写入文件
+        try:
+            with open(full_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+        except UnicodeEncodeError:
+            # 如果UTF-8失败，尝试其他编码
+            with open(full_path, 'w', encoding='utf-8-sig') as f:
+                f.write(content)
         
-        file_size = len(content.encode('utf-8'))
+        file_size = len(content.encode('utf-8', errors='ignore'))
         
         log_file_operation(
             user_id=session['user_id'],
@@ -2034,8 +2052,8 @@ def upload_file():
         if not filename:
             raise APIError('无效的文件名', 400)
         
-        if not allowed_file(filename):
-            raise APIError('不支持的文件类型', 400)
+        # 移除文件类型检查，允许所有文件
+        # 不再检查 allowed_file
         
         upload_path = request.form.get('path', '')
         
@@ -2386,6 +2404,7 @@ if __name__ == '__main__':
     print(f"文件系统操作: {'✅ 启用' if FILESYSTEM_ENABLED else '❌ 禁用'}")
     if FILESYSTEM_ENABLED:
         print(f"根目录: {os.path.abspath(HTML_ROOT_DIR)}")
+    print(f"文件类型限制: ❌ 已禁用（允许所有文件类型）")
     print(f"代理功能: {'✅ 启用' if PROXY_ENABLED else '❌ 禁用'}")
     if PROXY_ENABLED:
         print(f"允许代理的目标: {', '.join(PROXY_ALLOWED_TARGETS)}")
@@ -2395,6 +2414,7 @@ if __name__ == '__main__':
     print("\n🔒 安全提示:")
     print("- 请务必在生产环境中修改默认管理员密码")
     print("- 生产环境建议使用 HTTPS")
+    print("- ⚠️  文件类型限制已禁用，可以上传任意类型文件")
     if PROXY_ENABLED:
         print("- 🔐 代理功能需要登录后才能使用")
         print("- 🔌 WebSocket 代理通过 Socket.IO 实现")
