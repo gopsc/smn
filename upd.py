@@ -44,7 +44,8 @@ parser.add_argument('--config', type=str, default='config.ini', help='Configurat
 args = parser.parse_args()
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+#Flask-SocketIO 默认使用 eventlet 作为异步后端，但 eventlet.wsgi.server() 不支持 ssl_context 参数。
 
 # ==================== 配置类 ====================
 class Config:
