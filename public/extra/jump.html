@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>堡垒机 - SSH终端管理</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.19.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.5.0/lib/xterm-addon-web-links.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #app {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .auth-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .auth-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .auth-form button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .auth-form button:hover {
+            background: #5a67d8;
+        }
+
+        .main-container {
+            display: flex;
+            height: 100%;
+            width: 100%;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: white;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .user-info {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-info h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-info p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .user-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn {
+            background: #ff4757;
+            color: white;
+        }
+        
+        .logout-btn:hover {
+            background: #ff3838;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: #f0f2f5;
+            color: #667eea;
+        }
+
+        .nav-item.active {
+            background: #f0f2f5;
+            color: #667eea;
+            border-left-color: #667eea;
+        }
+
+        .content {
+            flex: 1;
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+            background: #f5f5f5;
+        }
+
+        #serversView,
+        #sessionsView {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .servers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            padding-bottom: 20px;
+        }
+
+        .server-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        .server-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .server-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .server-card p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .server-card .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .server-card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+
+        .server-card-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+
+        .edit-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .edit-btn:hover {
+            background: #5a67d8;
+        }
+
+        .delete-btn {
+            background: #ff4757;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background: #ff3838;
+        }
+
+        #terminalView {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #1e1e1e;
+            display: none;
+            z-index: 100;
+        }
+
+        .terminal-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            background: #1e1e1e;
+        }
+
+        .terminal-header {
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            height: 45px;
+        }
+
+        .terminal-header button {
+            padding: 5px 15px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .terminal-header button:hover {
+            background: #ff3838;
+        }
+
+        #terminal-xterm {
+            flex: 1;
+            background: #1e1e1e;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+            height: 100%;
+            width: 100%;
+            min-height: 0;
+        }
+
+        .xterm {
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+        
+        .xterm-viewport {
+            overflow-y: auto !important;
+            scrollbar-width: thin;
+            scrollbar-color: #4a4a4a #1e1e1e;
+        }
+        
+        .xterm-viewport::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        .xterm-viewport::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        
+        .xterm-viewport::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 5px;
+        }
+        
+        .xterm-screen {
+            width: 100% !important;
+        }
+        
+        .xterm canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .data-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .data-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+            color: #666;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-danger {
+            background: #ff4757;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff3838;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-content input,
+        .modal-content textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .modal-content textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 3000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.success {
+            border-left: 4px solid #28a745;
+        }
+
+        .notification.error {
+            border-left: 4px solid #ff4757;
+        }
+
+        .notification.info {
+            border-left: 4px solid #667eea;
+        }
+        
+        .notification.warning {
+            border-left: 4px solid #ffc107;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .command-history {
+            background: #1e1e1e;
+            color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .command-item {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .command-item .cmd {
+            color: #4caf50;
+        }
+
+        .command-item .time {
+            color: #888;
+            font-size: 10px;
+            margin-left: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* 连接状态指示器 */
+        .connection-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .connection-status.connected {
+            background-color: #28a745;
+            box-shadow: 0 0 5px #28a745;
+        }
+
+        .connection-status.disconnected {
+            background-color: #dc3545;
+            box-shadow: 0 0 5px #dc3545;
+        }
+
+        .connection-status.connecting {
+            background-color: #ffc107;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="auth-container" id="authView">
+            <div class="auth-box">
+                <h2>🛡️ 堡垒机系统</h2>
+                <div id="loginForm" class="auth-form">
+                    <input type="text" id="loginUsername" placeholder="用户名" autocomplete="username">
+                    <button onclick="login()">登录</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container" id="mainView" style="display: none;">
+            <div class="sidebar">
+                <div class="user-info">
+                    <h3 id="usernameDisplay"></h3>
+                    <p id="roleDisplay"></p>
+                    <div class="user-actions">
+                        <button class="logout-btn" onclick="logout()">退出登录</button>
+                    </div>
+                </div>
+                <div class="sidebar-nav">
+                    <div class="nav-item active" onclick="switchView('servers')">📁 服务器列表</div>
+                    <div class="nav-item" onclick="switchView('sessions')">📊 会话记录</div>
+                </div>
+            </div>
+
+            <div class="content">
+                <div id="serversView">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>服务器列表</h2>
+                        <button class="btn btn-primary" onclick="showAddServerModal()">+ 添加服务器</button>
+                    </div>
+                    <div id="serversList" class="servers-grid">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+
+                <div id="sessionsView" style="display: none;">
+                    <h2 style="margin-bottom: 20px;">会话记录</h2>
+                    <div class="data-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>用户</th>
+                                    <th>服务器</th>
+                                    <th>开始时间</th>
+                                    <th>结束时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessionsList">
+                                <tr><td colspan="5" class="loading">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="terminalView">
+                    <div class="terminal-container">
+                        <div class="terminal-header">
+                            <span id="terminalTitle"></span>
+                            <button onclick="closeTerminal()">关闭终端</button>
+                        </div>
+                        <div id="terminal-xterm"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="serverModal">
+        <div class="modal-content">
+            <h3 id="serverModalTitle">添加服务器</h3>
+            <input type="hidden" id="serverId">
+            <input type="text" id="serverName" placeholder="服务器名称 *" required>
+            <input type="text" id="serverHost" placeholder="主机地址 *" required>
+            <input type="number" id="serverPort" placeholder="端口" value="22">
+            <input type="text" id="serverUsername" placeholder="SSH用户名 *" required>
+            <input type="password" id="serverPassword" placeholder="密码（可选）">
+            <textarea id="serverDescription" placeholder="描述（可选）"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="hideModal('serverModal')">取消</button>
+                <button class="btn btn-success" onclick="saveServer()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="sessionModal">
+        <div class="modal-content">
+            <h3 id="sessionModalTitle">会话详情</h3>
+            <div id="sessionCommands" class="command-history">
+                <div style="color: #888; text-align: center;">加载中...</div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="hideModal('sessionModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="deleteConfirmModal">
+        <div class="modal-content">
+            <h3>确认删除</h3>
+            <p id="deleteConfirmMessage">确定要删除此服务器吗？此操作不可恢复！</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="hideModal('deleteConfirmModal')">取消</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let socket = null;
+        let currentUser = null;
+        let currentSessionId = null;
+        let currentServer = null;
+        let currentView = 'servers';
+        let terminal = null;
+        let fitAddon = null;
+        let deleteTargetId = null;
+        let resizeTimeout = null;
+        let terminalResizeObserver = null;
+        let isConnecting = false;
+        let socketConnected = false;
+        let wsProxyConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
+        // API 基础路径（通过文件浏览器代理访问）
+        const API_BASE = '/proxy/http://localhost:5001/api';
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+        });
+
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    credentials: 'include',
+                    headers: {
+                        'X-Proxy-User': localStorage.getItem('bastion_username') || ''
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.authenticated) {
+                        currentUser = { username: data.username, is_admin: true };
+                        showMainView();
+                    } else {
+                        showAuthView();
+                    }
+                } else {
+                    showAuthView();
+                }
+            } catch (error) {
+                console.log('检查登录状态失败:', error);
+                showAuthView();
+            }
+        }
+
+        function showAuthView() {
+            document.getElementById('authView').style.display = 'flex';
+            document.getElementById('mainView').style.display = 'none';
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+
+            if (!username) {
+                showNotification('请输入用户名', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username}),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    currentUser = data.user;
+                    localStorage.setItem('bastion_username', username);
+                    showMainView();
+                    showNotification('登录成功', 'success');
+                } else {
+                    showNotification(data.error || '登录失败', 'error');
+                }
+            } catch (error) {
+                showNotification('登录失败: ' + error.message, 'error');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.log('登出请求失败:', error);
+            }
+            
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            
+            destroyTerminal();
+            
+            currentUser = null;
+            socketConnected = false;
+            wsProxyConnected = false;
+            localStorage.removeItem('bastion_username');
+            showAuthView();
+            showNotification('已退出登录', 'info');
+        }
+
+        function showMainView() {
+            document.getElementById('authView').style.display = 'none';
+            document.getElementById('mainView').style.display = 'flex';
+            document.getElementById('usernameDisplay').textContent = currentUser.username;
+            document.getElementById('roleDisplay').textContent = '管理员';
+
+            loadServers();
+            initializeSocket();
+        }
+
+        // 初始化WebSocket - 连接文件浏览器的 Socket.IO 代理
+        function initializeSocket() {
+            if (typeof io === 'undefined') {
+                console.error('Socket.io not loaded');
+                showNotification('Socket.io加载失败，请刷新页面', 'error');
+                return;
+            }
+            
+            // 连接到文件浏览器的 Socket.IO 服务
+            const socketUrl = window.location.origin;
+            
+            console.log('Connecting to Socket.IO at:', socketUrl);
+            
+            socket = io(socketUrl, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000,
+                withCredentials: true
+            });
+            
+            socket.on('connect', function() {
+                console.log('Socket.IO connected to file browser');
+                socketConnected = true;
+                reconnectAttempts = 0;
+                showNotification('WebSocket连接成功', 'success');
+                
+                // 连接成功后，通过 ws_connect 连接到堡垒机后端
+                const targetUrl = 'ws://localhost:5001';
+                console.log('Connecting to bastion backend via proxy:', targetUrl);
+                socket.emit('ws_connect', { target_url: targetUrl });
+            });
+
+            socket.on('connect_error', function(error) {
+                console.error('Socket.IO connection error:', error);
+                socketConnected = false;
+                reconnectAttempts++;
+                
+                if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    showNotification('WebSocket连接失败，请刷新页面重试', 'error');
+                }
+            });
+
+            socket.on('ws_connecting', function(data) {
+                console.log('Connecting to target:', data);
+                showNotification('正在连接堡垒机后端...', 'info');
+            });
+
+            socket.on('ws_connected', function(data) {
+                console.log('Connected to bastion backend:', data);
+                wsProxyConnected = true;
+                showNotification('已连接到堡垒机后端', 'success');
+            });
+
+            socket.on('ws_message', function(data) {
+                console.log('Received message from bastion:', data);
+                try {
+                    const message = JSON.parse(data.data);
+                    if (message.type === 'connected' && message.session_id) {
+                        currentSessionId = message.session_id;
+                        isConnecting = false;
+                        showNotification('SSH连接成功', 'success');
+                        if (terminal) {
+                            terminal.focus();
+                        }
+                    } else if (message.type === 'output') {
+                        if (terminal && message.session_id === currentSessionId) {
+                            terminal.write(message.data);
+                        }
+                    } else if (message.type === 'error') {
+                        showNotification(message.message, 'error');
+                        if (terminal) {
+                            terminal.write(`\r\n\x1b[31m错误: ${message.message}\x1b[0m\r\n`);
+                        }
+                    } else if (message.type === 'disconnected') {
+                        currentSessionId = null;
+                        if (terminal) {
+                            terminal.write('\r\n\x1b[31mSSH连接已断开\x1b[0m\r\n');
+                        }
+                    }
+                } catch (e) {
+                    // 如果不是 JSON，作为原始数据输出
+                    if (terminal) {
+                        terminal.write(data.data);
+                    }
+                }
+            });
+
+            socket.on('ws_error', function(data) {
+                console.error('WebSocket proxy error:', data);
+                isConnecting = false;
+                wsProxyConnected = false;
+                showNotification(data.error || '代理错误', 'error');
+                if (terminal) {
+                    terminal.write(`\r\n\x1b[31m代理错误: ${data.error || '未知错误'}\x1b[0m\r\n`);
+                }
+            });
+
+            socket.on('ws_disconnected', function(data) {
+                console.log('Disconnected from target:', data);
+                wsProxyConnected = false;
+                showNotification('堡垒机后端连接已断开', 'warning');
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Socket.IO disconnected');
+                socketConnected = false;
+                wsProxyConnected = false;
+                if (currentSessionId) {
+                    if (terminal) {
+                        terminal.write('\r\n\x1b[33mWebSocket连接已断开，尝试重连...\x1b[0m\r\n');
+                    }
+                    showNotification('WebSocket连接断开，正在重连...', 'warning');
+                }
+            });
+        }
+
+        function switchView(view) {
+            const target = event?.target;
+            if (target) {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                target.classList.add('active');
+            }
+
+            document.getElementById('serversView').style.display = 'none';
+            document.getElementById('sessionsView').style.display = 'none';
+            document.getElementById('terminalView').style.display = 'none';
+
+            currentView = view;
+
+            switch(view) {
+                case 'servers':
+                    document.getElementById('serversView').style.display = 'block';
+                    loadServers();
+                    break;
+                case 'sessions':
+                    document.getElementById('sessionsView').style.display = 'block';
+                    loadSessions();
+                    break;
+            }
+        }
+
+        function destroyTerminal() {
+            if (terminalResizeObserver) {
+                terminalResizeObserver.disconnect();
+                terminalResizeObserver = null;
+            }
+            
+            if (terminal) {
+                terminal.dispose();
+                terminal = null;
+                fitAddon = null;
+            }
+            
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = null;
+            }
+        }
+
+        function fitTerminal() {
+            if (!terminal || !fitAddon) return;
+            try {
+                fitAddon.fit();
+                if (currentSessionId && socket && socket.connected && wsProxyConnected) {
+                    const message = JSON.stringify({
+                        type: 'resize',
+                        session_id: currentSessionId,
+                        cols: terminal.cols,
+                        rows: terminal.rows
+                    });
+                    socket.emit('ws_send', { message: message });
+                }
+            } catch (e) {
+                console.error('Failed to fit terminal:', e);
+            }
+        }
+
+        function fitTerminalWithDelay() {
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => fitTerminal(), 100);
+        }
+
+        function initTerminal() {
+            destroyTerminal();
+
+            const container = document.getElementById('terminal-xterm');
+            container.innerHTML = '';
+            
+            terminal = new Terminal({
+                cursorBlink: true,
+                cursorStyle: 'block',
+                theme: {
+                    background: '#1e1e1e',
+                    foreground: '#f0f0f0',
+                    cursor: '#f0f0f0',
+                    selection: 'rgba(255,255,255,0.3)'
+                },
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                fontSize: 14,
+                lineHeight: 1.2,
+                scrollback: 10000,
+                allowTransparency: true,
+                macOptionIsMeta: true
+            });
+
+            terminal.open(container);
+
+            try {
+                if (typeof FitAddon !== 'undefined') {
+                    fitAddon = new FitAddon.FitAddon();
+                    terminal.loadAddon(fitAddon);
+                }
+            } catch (e) {
+                console.error('Failed to load fit addon:', e);
+            }
+
+            if (window.ResizeObserver) {
+                terminalResizeObserver = new ResizeObserver(() => {
+                    if (document.getElementById('terminalView').style.display === 'block') {
+                        fitTerminalWithDelay();
+                    }
+                });
+                terminalResizeObserver.observe(container);
+            }
+
+            terminal.onData(data => {
+                if (currentSessionId && socket && socket.connected && wsProxyConnected) {
+                    const message = JSON.stringify({
+                        type: 'command',
+                        session_id: currentSessionId,
+                        command: data
+                    });
+                    socket.emit('ws_send', { message: message });
+                }
+            });
+
+            terminal.onResize(size => {
+                if (currentSessionId && socket && socket.connected && wsProxyConnected) {
+                    const message = JSON.stringify({
+                        type: 'resize',
+                        session_id: currentSessionId,
+                        cols: size.cols,
+                        rows: size.rows
+                    });
+                    socket.emit('ws_send', { message: message });
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                if (document.getElementById('terminalView').style.display === 'block') {
+                    fitTerminalWithDelay();
+                }
+            });
+
+            setTimeout(() => fitTerminal(), 100);
+            setTimeout(() => fitTerminal(), 300);
+            setTimeout(() => fitTerminal(), 500);
+        }
+
+        async function connectToServer(serverId, serverName, serverHost, serverPort) {
+            if (isConnecting) {
+                showNotification('正在连接中，请稍候...', 'warning');
+                return;
+            }
+            
+            if (!socket || !socket.connected) {
+                showNotification('WebSocket未连接，正在重连...', 'warning');
+                initializeSocket();
+                setTimeout(() => connectToServer(serverId, serverName, serverHost, serverPort), 1500);
+                return;
+            }
+            
+            if (!wsProxyConnected) {
+                showNotification('堡垒机后端未连接，请稍候...', 'warning');
+                return;
+            }
+            
+            isConnecting = true;
+            currentServer = { id: serverId, name: serverName, host: serverHost, port: serverPort };
+            
+            document.getElementById('serversView').style.display = 'none';
+            document.getElementById('sessionsView').style.display = 'none';
+            document.getElementById('terminalView').style.display = 'block';
+            document.getElementById('terminalTitle').textContent = `${serverName} (${serverHost}:${serverPort})`;
+
+            initTerminal();
+
+            setTimeout(() => {
+                if (terminal && socket && socket.connected && wsProxyConnected) {
+                    const cols = terminal.cols || 80;
+                    const rows = terminal.rows || 24;
+                    
+                    console.log('Connecting to server with size:', {cols, rows});
+                    
+                    const message = JSON.stringify({
+                        type: 'connect_server',
+                        server_id: serverId,
+                        username: currentUser.username,
+                        cols: cols,
+                        rows: rows
+                    });
+                    socket.emit('ws_send', { message: message });
+                    
+                    setTimeout(() => {
+                        if (isConnecting) {
+                            isConnecting = false;
+                            showNotification('连接超时，请检查服务器配置', 'error');
+                        }
+                    }, 10000);
+                } else {
+                    isConnecting = false;
+                    showNotification('连接失败，WebSocket未就绪', 'error');
+                }
+            }, 500);
+        }
+
+        function closeTerminal() {
+            if (currentSessionId && socket && socket.connected && wsProxyConnected) {
+                const message = JSON.stringify({
+                    type: 'disconnect_server',
+                    session_id: currentSessionId
+                });
+                socket.emit('ws_send', { message: message });
+                currentSessionId = null;
+            }
+            
+            destroyTerminal();
+            isConnecting = false;
+            
+            document.getElementById('terminalView').style.display = 'none';
+            document.getElementById('serversView').style.display = 'block';
+            currentView = 'servers';
+        }
+
+        async function loadServers() {
+            try {
+                const response = await fetch(`${API_BASE}/servers`, {
+                    credentials: 'include',
+                    headers: {
+                        'X-Proxy-User': currentUser?.username || ''
+                    }
+                });
+                const servers = await response.json();
+                
+                const serversList = document.getElementById('serversList');
+                
+                if (!servers || servers.length === 0) {
+                    serversList.innerHTML = '<div class="empty-state"><div class="icon">📭</div><div>暂无服务器，点击上方按钮添加</div></div>';
+                    return;
+                }
+
+                serversList.innerHTML = '';
+                servers.forEach(server => {
+                    const card = document.createElement('div');
+                    card.className = 'server-card';
+                    card.onclick = () => connectToServer(server.id, server.name, server.host, server.port);
+                    
+                    card.innerHTML = `
+                        <h3>🔌 ${escapeHtml(server.name)}</h3>
+                        <p>🌐 ${escapeHtml(server.host)}:${server.port}</p>
+                        <p>👤 ${escapeHtml(server.username)}</p>
+                        <p>📝 ${escapeHtml(server.description || '无描述')}</p>
+                        <span class="badge">✓ 可连接</span>
+                        <div class="server-card-actions" onclick="event.stopPropagation()">
+                            <button class="edit-btn" onclick="editServer(${server.id})">编辑</button>
+                            <button class="delete-btn" onclick="confirmDeleteServer(${server.id})">删除</button>
+                        </div>
+                    `;
+                    serversList.appendChild(card);
+                });
+            } catch (error) {
+                console.error('加载服务器列表失败:', error);
+                document.getElementById('serversList').innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><div>加载失败，请刷新重试</div></div>';
+            }
+        }
+
+        async function editServer(serverId) {
+            try {
+                const response = await fetch(`${API_BASE}/servers/${serverId}`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('获取服务器信息失败');
+                
+                const server = await response.json();
+                
+                document.getElementById('serverModalTitle').textContent = '编辑服务器';
+                document.getElementById('serverId').value = server.id;
+                document.getElementById('serverName').value = server.name;
+                document.getElementById('serverHost').value = server.host;
+                document.getElementById('serverPort').value = server.port;
+                document.getElementById('serverUsername').value = server.username;
+                document.getElementById('serverPassword').value = '';
+                document.getElementById('serverDescription').value = server.description || '';
+                
+                showModal('serverModal');
+            } catch (error) {
+                showNotification('加载服务器信息失败', 'error');
+            }
+        }
+
+        function confirmDeleteServer(serverId) {
+            deleteTargetId = serverId;
+            document.getElementById('deleteConfirmMessage').textContent = '确定要删除此服务器吗？此操作不可恢复！';
+            document.getElementById('confirmDeleteBtn').onclick = () => deleteServer();
+            showModal('deleteConfirmModal');
+        }
+
+        async function deleteServer() {
+            if (!deleteTargetId) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/servers/${deleteTargetId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    showNotification('服务器删除成功', 'success');
+                    hideModal('deleteConfirmModal');
+                    loadServers();
+                    deleteTargetId = null;
+                } else {
+                    const data = await response.json();
+                    showNotification(data.error || '删除失败', 'error');
+                }
+            } catch (error) {
+                showNotification('删除失败', 'error');
+            }
+        }
+
+        function showAddServerModal() {
+            document.getElementById('serverModalTitle').textContent = '添加服务器';
+            document.getElementById('serverId').value = '';
+            document.getElementById('serverName').value = '';
+            document.getElementById('serverHost').value = '';
+            document.getElementById('serverPort').value = '22';
+            document.getElementById('serverUsername').value = '';
+            document.getElementById('serverPassword').value = '';
+            document.getElementById('serverDescription').value = '';
+            
+            showModal('serverModal');
+        }
+
+        async function saveServer() {
+            const serverId = document.getElementById('serverId').value;
+            const isEdit = !!serverId;
+            
+            const serverData = {
+                name: document.getElementById('serverName').value.trim(),
+                host: document.getElementById('serverHost').value.trim(),
+                port: parseInt(document.getElementById('serverPort').value) || 22,
+                username: document.getElementById('serverUsername').value.trim(),
+                description: document.getElementById('serverDescription').value
+            };
+
+            if (!serverData.name || !serverData.host || !serverData.username) {
+                showNotification('请填写所有必填字段', 'error');
+                return;
+            }
+
+            const password = document.getElementById('serverPassword').value;
+            if (password) {
+                serverData.password = password;
+            }
+
+            try {
+                const url = isEdit ? `${API_BASE}/servers/${serverId}` : `${API_BASE}/servers`;
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(serverData),
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    showNotification(isEdit ? '服务器更新成功' : '服务器添加成功', 'success');
+                    hideModal('serverModal');
+                    loadServers();
+                } else {
+                    const data = await response.json();
+                    showNotification(data.error || (isEdit ? '更新失败' : '添加失败'), 'error');
+                }
+            } catch (error) {
+                showNotification(isEdit ? '更新服务器失败' : '添加服务器失败', 'error');
+            }
+        }
+
+        async function loadSessions() {
+            try {
+                const response = await fetch(`${API_BASE}/sessions`, {
+                    credentials: 'include'
+                });
+                const sessions = await response.json();
+                
+                const tbody = document.getElementById('sessionsList');
+                
+                if (!sessions || sessions.length === 0) {
+                    tbody.innerHTML = '发展<td colspan="5" class="empty-state">暂无会话记录</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                sessions.forEach(session => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${escapeHtml(session.username)}</td>
+                        <td>${escapeHtml(session.server_name)}</td>
+                        <td>${new Date(session.start_time).toLocaleString()}</td>
+                        <td>${session.end_time ? new Date(session.end_time).toLocaleString() : '进行中'}</td>
+                        <td><button class="btn btn-primary" onclick="viewSession('${session.session_id}')">查看详情</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('加载会话记录失败:', error);
+                document.getElementById('sessionsList').innerHTML = '<tr><td colspan="5" class="empty-state">加载失败</td></tr>';
+            }
+        }
+
+        async function viewSession(sessionId) {
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+                    credentials: 'include'
+                });
+                const session = await response.json();
+                
+                const commandsDiv = document.getElementById('sessionCommands');
+                
+                if (session.commands && session.commands.length > 0) {
+                    commandsDiv.innerHTML = '';
+                    session.commands.forEach(cmd => {
+                        const div = document.createElement('div');
+                        div.className = 'command-item';
+                        div.innerHTML = `
+                            <div>
+                                <span class="cmd">$ ${escapeHtml(cmd.command)}</span>
+                                <span class="time">${new Date(cmd.timestamp).toLocaleString()}</span>
+                            </div>
+                        `;
+                        commandsDiv.appendChild(div);
+                    });
+                } else {
+                    commandsDiv.innerHTML = '<div style="color: #888; text-align: center;">暂无命令记录</div>';
+                }
+
+                document.getElementById('sessionModalTitle').textContent = `会话详情 - ${session.server}`;
+                showModal('sessionModal');
+            } catch (error) {
+                showNotification('加载会话详情失败', 'error');
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function hideModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

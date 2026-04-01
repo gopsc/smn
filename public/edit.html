@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代码编辑器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .btn-success {
+            background-color: #2ecc71;
+        }
+        .btn-success:hover {
+            background-color: #27ae60;
+        }
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        .btn-warning {
+            background-color: #f39c12;
+        }
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+        .editor-container {
+            display: flex;
+            height: calc(100vh - 150px);
+        }
+        .sidebar {
+            width: 280px;
+            background-color: #ecf0f1;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .sidebar-header h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .file-tree {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-tree ul {
+            list-style: none;
+            padding-left: 20px;
+            margin: 0;
+        }
+        .file-item {
+            padding: 5px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        .file-item:hover {
+            background-color: #d6dbdf;
+        }
+        .file-item.selected {
+            background-color: #3498db;
+            color: white;
+        }
+        .file-item.selected .file-icon {
+            color: white;
+        }
+        .file-icon {
+            margin-right: 8px;
+            width: 20px;
+            text-align: center;
+        }
+        .file-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .file-actions {
+            display: none;
+            gap: 5px;
+        }
+        .file-item:hover .file-actions {
+            display: flex;
+        }
+        .file-action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #7f8c8d;
+        }
+        .file-action-btn:hover {
+            background-color: rgba(0,0,0,0.1);
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+        }
+        .file-info {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-path {
+            font-size: 13px;
+            color: #7f8c8d;
+            font-family: monospace;
+        }
+        .editor-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        #editor {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', 'Fira Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            background-color: #f8f9fa;
+            tab-size: 4;
+        }
+        #editor:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52,152,219,0.3);
+        }
+        .status-bar {
+            margin-top: 10px;
+            padding: 8px 0;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 25px;
+            border-radius: 8px;
+            width: 450px;
+            max-width: 90%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-title {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        .close {
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+        .close:hover {
+            color: #2c3e50;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            z-index: 1001;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .notification.success {
+            background-color: #2ecc71;
+        }
+        .notification.error {
+            background-color: #e74c3c;
+        }
+        .notification.info {
+            background-color: #3498db;
+        }
+        .notification.warning {
+            background-color: #f39c12;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .breadcrumb-item {
+            color: #3498db;
+            cursor: pointer;
+        }
+        .breadcrumb-item:hover {
+            text-decoration: underline;
+        }
+        .breadcrumb-separator {
+            color: #7f8c8d;
+        }
+        .unsaved-indicator {
+            color: #f39c12;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>📝 代码编辑器</h1>
+                <button id="newFileBtn" class="btn">📄 新建文件</button>
+                <button id="newFolderBtn" class="btn">📁 新建文件夹</button>
+                <button id="refreshBtn" class="btn">🔄 刷新</button>
+                <button id="homeBtn" class="btn">🏠 根目录</button>
+            </div>
+            <button id="logoutBtn" class="btn btn-danger">🚪 退出登录</button>
+        </header>
+        
+        <div class="editor-container">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📂 文件浏览器</h3>
+                    <button id="uploadBtn" class="btn" style="padding: 4px 8px; font-size: 12px;">📤 上传</button>
+                </div>
+                <div id="fileTree" class="file-tree">
+                    <div style="text-align: center; padding: 20px; color: #7f8c8d;">加载中...</div>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="breadcrumb" id="breadcrumb"></div>
+                
+                <div class="file-info">
+                    <div class="file-path" id="filePath">未选择文件</div>
+                    <div>
+                        <button id="saveBtn" class="btn btn-success" disabled>💾 保存 (Ctrl+S)</button>
+                        <button id="downloadBtn" class="btn" disabled>📥 下载</button>
+                        <button id="deleteBtn" class="btn btn-danger" disabled>🗑️ 删除</button>
+                    </div>
+                </div>
+                
+                <div class="editor-toolbar">
+                    <button id="undoBtn" class="btn" style="padding: 4px 12px;">↩️ 撤销</button>
+                    <button id="redoBtn" class="btn" style="padding: 4px 12px;">↪️ 重做</button>
+                    <button id="formatBtn" class="btn" style="padding: 4px 12px;">✨ 格式化</button>
+                    <span id="unsavedIndicator" class="unsaved-indicator"></span>
+                </div>
+                
+                <textarea id="editor" placeholder="请选择一个文件进行编辑..."></textarea>
+                
+                <div class="status-bar">
+                    <div id="statusInfo">就绪</div>
+                    <div id="cursorPosition">行: 1, 列: 1</div>
+                    <div id="fileInfo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新建文件模态框 -->
+    <div id="newFileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📄 新建文件</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="form-group">
+                <label>文件名:</label>
+                <input type="text" id="fileNameInput" placeholder="例如：example.txt" autocomplete="off">
+                <small style="color: #7f8c8d; font-size: 12px;">支持的文件类型：.txt, .js, .html, .css, .py, .json 等</small>
+            </div>
+            <div class="modal-buttons">
+                <button id="cancelFileBtn" class="btn">取消</button>
+                <button id="createFileBtn" class="btn btn-success">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新建文件夹模态框 -->
+    <div id="newFolderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📁 新建文件夹</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="form-group">
+                <label>文件夹名:</label>
+                <input type="text" id="folderNameInput" placeholder="例如：src" autocomplete="off">
+            </div>
+            <div class="modal-buttons">
+                <button id="cancelFolderBtn" class="btn">取消</button>
+                <button id="createFolderBtn" class="btn btn-success">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 上传文件模态框 -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📤 上传文件</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="form-group">
+                <label>选择文件:</label>
+                <input type="file" id="uploadFileInput">
+            </div>
+            <div class="modal-buttons">
+                <button id="cancelUploadBtn" class="btn">取消</button>
+                <button id="confirmUploadBtn" class="btn btn-success">上传</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 删除确认模态框 -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ 确认删除</h3>
+                <span class="close">&times;</span>
+            </div>
+            <p id="deleteConfirmMessage">确定要删除此文件吗？此操作不可恢复！</p>
+            <div class="modal-buttons">
+                <button id="cancelDeleteBtn" class="btn">取消</button>
+                <button id="confirmDeleteBtn" class="btn btn-danger">删除</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知元素 -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // 全局变量
+        let currentPath = '';
+        let currentFile = null;
+        let currentFileContent = '';
+        let unsavedChanges = false;
+        let fileHistory = []; // 用于撤销/重做
+        let historyIndex = -1;
+        
+        // DOM 元素
+        const fileTree = document.getElementById('fileTree');
+        const editor = document.getElementById('editor');
+        const filePath = document.getElementById('filePath');
+        const statusInfo = document.getElementById('statusInfo');
+        const cursorPosition = document.getElementById('cursorPosition');
+        const fileInfo = document.getElementById('fileInfo');
+        const saveBtn = document.getElementById('saveBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const deleteBtn = document.getElementById('deleteBtn');
+        const newFileBtn = document.getElementById('newFileBtn');
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const homeBtn = document.getElementById('homeBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const formatBtn = document.getElementById('formatBtn');
+        const unsavedIndicator = document.getElementById('unsavedIndicator');
+        const breadcrumb = document.getElementById('breadcrumb');
+        
+        // 模态框元素
+        const newFileModal = document.getElementById('newFileModal');
+        const newFolderModal = document.getElementById('newFolderModal');
+        const uploadModal = document.getElementById('uploadModal');
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        const fileNameInput = document.getElementById('fileNameInput');
+        const folderNameInput = document.getElementById('folderNameInput');
+        const uploadFileInput = document.getElementById('uploadFileInput');
+        
+        // 通知元素
+        const notification = document.getElementById('notification');
+        
+        // API 基础路径（通过文件浏览器代理访问）
+        const API_BASE = '';
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadFileList('/');
+            bindEventListeners();
+        });
+        
+        // 绑定事件监听器
+        function bindEventListeners() {
+            saveBtn.addEventListener('click', saveCurrentFile);
+            downloadBtn.addEventListener('click', downloadCurrentFile);
+            deleteBtn.addEventListener('click', () => showDeleteConfirm(currentFile));
+            newFileBtn.addEventListener('click', () => showModal(newFileModal));
+            newFolderBtn.addEventListener('click', () => showModal(newFolderModal));
+            uploadBtn.addEventListener('click', () => showModal(uploadModal));
+            refreshBtn.addEventListener('click', () => loadFileList(currentPath));
+            homeBtn.addEventListener('click', () => loadFileList('/'));
+            logoutBtn.addEventListener('click', logout);
+            undoBtn.addEventListener('click', undo);
+            redoBtn.addEventListener('click', redo);
+            formatBtn.addEventListener('click', formatCode);
+            
+            // 编辑器内容变化监听
+            editor.addEventListener('input', function() {
+                if (!unsavedChanges) {
+                    unsavedChanges = true;
+                    updateUnsavedIndicator();
+                    saveHistory();
+                }
+                updateCursorPosition();
+            });
+            
+            // 光标位置更新
+            editor.addEventListener('keyup', updateCursorPosition);
+            editor.addEventListener('click', updateCursorPosition);
+            editor.addEventListener('select', updateCursorPosition);
+            
+            // 快捷键
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    if (currentFile) {
+                        saveCurrentFile();
+                    }
+                }
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+                if (e.ctrlKey && e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            });
+            
+            // 模态框关闭按钮
+            document.querySelectorAll('.close').forEach(close => {
+                close.addEventListener('click', function() {
+                    hideAllModals();
+                });
+            });
+            
+            // 取消按钮
+            document.getElementById('cancelFileBtn')?.addEventListener('click', () => hideModal(newFileModal));
+            document.getElementById('cancelFolderBtn')?.addEventListener('click', () => hideModal(newFolderModal));
+            document.getElementById('cancelUploadBtn')?.addEventListener('click', () => hideModal(uploadModal));
+            document.getElementById('cancelDeleteBtn')?.addEventListener('click', () => hideModal(deleteConfirmModal));
+            
+            // 确认按钮
+            document.getElementById('createFileBtn')?.addEventListener('click', createNewFile);
+            document.getElementById('createFolderBtn')?.addEventListener('click', createNewFolder);
+            document.getElementById('confirmUploadBtn')?.addEventListener('click', uploadFile);
+            document.getElementById('confirmDeleteBtn')?.addEventListener('click', deleteFile);
+        }
+        
+        // 检查认证状态
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/check-auth', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (!data.authenticated) {
+                    showNotification('请先登录', 'error');
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('认证检查失败:', error);
+            }
+        }
+        
+        // 退出登录
+        async function logout() {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('退出登录失败:', error);
+                showNotification('退出登录失败', 'error');
+            }
+        }
+        
+        // 加载文件列表
+        async function loadFileList(path) {
+            statusInfo.textContent = '正在加载文件列表...';
+            
+            try {
+                const response = await fetch(`/api/filelist?path=${encodeURIComponent(path)}`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || '加载文件列表失败');
+                }
+                
+                currentPath = data.path;
+                renderFileTree(data.items, path);
+                renderBreadcrumb(data);
+                statusInfo.textContent = `已加载 ${data.total_items} 个项目`;
+            } catch (error) {
+                console.error('加载文件列表失败:', error);
+                showNotification(`加载文件列表失败: ${error.message}`, 'error');
+                statusInfo.textContent = '加载失败';
+            }
+        }
+        
+        // 渲染面包屑
+        function renderBreadcrumb(data) {
+            const pathParts = (data.path === '/' ? '' : data.path).split('/').filter(p => p);
+            let breadcrumbHtml = '';
+            let currentPath = '';
+            
+            breadcrumbHtml += `<span class="breadcrumb-item" onclick="loadFileList('/')">根目录</span>`;
+            
+            for (let i = 0; i < pathParts.length; i++) {
+                currentPath += (i === 0 ? '' : '/') + pathParts[i];
+                breadcrumbHtml += `<span class="breadcrumb-separator">/</span>`;
+                breadcrumbHtml += `<span class="breadcrumb-item" onclick="loadFileList('${currentPath}')">${escapeHtml(pathParts[i])}</span>`;
+            }
+            
+            breadcrumb.innerHTML = breadcrumbHtml;
+        }
+        
+        // 渲染文件树
+        function renderFileTree(items, basePath) {
+            if (!items || items.length === 0) {
+                fileTree.innerHTML = '<div style="text-align: center; padding: 20px; color: #7f8c8d;">📭 暂无文件</div>';
+                return;
+            }
+            
+            fileTree.innerHTML = '';
+            
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.dataset.type = item.type;
+                div.dataset.path = item.path;
+                
+                const icon = document.createElement('span');
+                icon.className = 'file-icon';
+                icon.textContent = getFileIcon(item.name, item.type);
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'file-name';
+                nameSpan.textContent = item.name;
+                
+                const actions = document.createElement('span');
+                actions.className = 'file-actions';
+                
+                if (item.type === 'file') {
+                    const deleteAction = document.createElement('button');
+                    deleteAction.textContent = '🗑️';
+                    deleteAction.className = 'file-action-btn';
+                    deleteAction.title = '删除';
+                    deleteAction.onclick = (e) => {
+                        e.stopPropagation();
+                        showDeleteConfirm(item.path);
+                    };
+                    actions.appendChild(deleteAction);
+                }
+                
+                div.appendChild(icon);
+                div.appendChild(nameSpan);
+                div.appendChild(actions);
+                
+                div.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    document.querySelectorAll('.file-item.selected').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    this.classList.add('selected');
+                    
+                    if (item.type === 'dir') {
+                        loadFileList(item.path);
+                    } else {
+                        openFile(item.path);
+                    }
+                });
+                
+                fileTree.appendChild(div);
+            });
+        }
+        
+        // 获取文件图标
+        function getFileIcon(filename, type) {
+            if (type === 'dir') return '📁';
+            
+            const ext = filename.split('.').pop().toLowerCase();
+            const icons = {
+                'txt': '📄', 'md': '📝', 'js': '📜', 'ts': '📘', 'html': '🌐',
+                'css': '🎨', 'py': '🐍', 'java': '☕', 'cpp': '🔧', 'c': '🔧',
+                'h': '🔧', 'json': '⚙️', 'xml': '📋', 'yml': '⚙️', 'yaml': '⚙️',
+                'sql': '🗄️', 'sh': '💻', 'bat': '💻', 'ps1': '💻'
+            };
+            return icons[ext] || '📄';
+        }
+        
+        // 打开文件
+        async function openFile(filePath) {
+            statusInfo.textContent = '正在打开文件...';
+            
+            try {
+                const response = await fetch(`/read-file/${encodeURIComponent(filePath)}`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                currentFile = filePath;
+                currentFileContent = data.content;
+                editor.value = data.content;
+                unsavedChanges = false;
+                updateUnsavedIndicator();
+                updateSaveButtonState();
+                
+                // 重置历史
+                fileHistory = [data.content];
+                historyIndex = 0;
+                
+                // 更新文件路径显示
+                filePath.textContent = filePath;
+                
+                // 更新文件信息
+                const fileSize = formatFileSize(data.size);
+                const fileExt = filePath.split('.').pop().toUpperCase();
+                fileInfo.textContent = `${fileExt} | ${fileSize}`;
+                
+                statusInfo.textContent = `已打开: ${filePath.split('/').pop()} (${fileSize})`;
+                updateCursorPosition();
+                showNotification('文件打开成功', 'success');
+            } catch (error) {
+                console.error('打开文件失败:', error);
+                showNotification(`打开文件失败: ${error.message}`, 'error');
+                statusInfo.textContent = '打开文件失败';
+            }
+        }
+        
+        // 保存当前文件
+        async function saveCurrentFile() {
+            if (!currentFile) {
+                showNotification('没有打开的文件', 'error');
+                return;
+            }
+            
+            statusInfo.textContent = '正在保存文件...';
+            
+            try {
+                const formData = new FormData();
+                const blob = new Blob([editor.value], { type: 'text/plain' });
+                const filename = currentFile.split('/').pop();
+                formData.append('file', blob, filename);
+                formData.append('path', currentFile.substring(0, currentFile.lastIndexOf('/')));
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    unsavedChanges = false;
+                    currentFileContent = editor.value;
+                    updateUnsavedIndicator();
+                    updateSaveButtonState();
+                    statusInfo.textContent = `已保存: ${currentFile.split('/').pop()} (${formatFileSize(editor.value.length)})`;
+                    showNotification('文件保存成功', 'success');
+                } else {
+                    throw new Error(result.message || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存文件失败:', error);
+                showNotification(`保存文件失败: ${error.message}`, 'error');
+                statusInfo.textContent = '保存失败';
+            }
+        }
+        
+        // 下载当前文件
+        function downloadCurrentFile() {
+            if (!currentFile) {
+                showNotification('没有打开的文件', 'error');
+                return;
+            }
+            
+            const blob = new Blob([editor.value], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFile.split('/').pop();
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('文件下载已开始', 'success');
+        }
+        
+        // 删除文件
+        async function deleteFile() {
+            if (!currentFile) return;
+            
+            try {
+                const response = await fetch('/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: currentFile }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '删除失败');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideModal(deleteConfirmModal);
+                    currentFile = null;
+                    currentFileContent = '';
+                    editor.value = '';
+                    unsavedChanges = false;
+                    updateSaveButtonState();
+                    filePath.textContent = '未选择文件';
+                    fileInfo.textContent = '';
+                    showNotification('文件删除成功', 'success');
+                    loadFileList(currentPath);
+                } else {
+                    throw new Error(result.message || '删除失败');
+                }
+            } catch (error) {
+                console.error('删除文件失败:', error);
+                showNotification(`删除文件失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 创建新文件
+        async function createNewFile() {
+            const fileName = fileNameInput.value.trim();
+            if (!fileName) {
+                showNotification('请输入文件名', 'error');
+                return;
+            }
+            
+            if (!isValidFileName(fileName)) {
+                showNotification('文件名包含非法字符', 'error');
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', new Blob([''], { type: 'text/plain' }), fileName);
+                formData.append('path', currentPath);
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '创建失败');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideModal(newFileModal);
+                    fileNameInput.value = '';
+                    showNotification('文件创建成功', 'success');
+                    loadFileList(currentPath);
+                } else {
+                    throw new Error(result.message || '创建失败');
+                }
+            } catch (error) {
+                console.error('创建文件失败:', error);
+                showNotification(`创建文件失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 创建新文件夹
+        async function createNewFolder() {
+            const folderName = folderNameInput.value.trim();
+            if (!folderName) {
+                showNotification('请输入文件夹名', 'error');
+                return;
+            }
+            
+            if (!isValidFileName(folderName)) {
+                showNotification('文件夹名包含非法字符', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/folders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: folderName,
+                        path: currentPath
+                    }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '创建失败');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideModal(newFolderModal);
+                    folderNameInput.value = '';
+                    showNotification('文件夹创建成功', 'success');
+                    loadFileList(currentPath);
+                } else {
+                    throw new Error(result.message || '创建失败');
+                }
+            } catch (error) {
+                console.error('创建文件夹失败:', error);
+                showNotification(`创建文件夹失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 上传文件
+        async function uploadFile() {
+            const file = uploadFileInput.files[0];
+            if (!file) {
+                showNotification('请选择要上传的文件', 'error');
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('path', currentPath);
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '上传失败');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideModal(uploadModal);
+                    uploadFileInput.value = '';
+                    showNotification('文件上传成功', 'success');
+                    loadFileList(currentPath);
+                } else {
+                    throw new Error(result.message || '上传失败');
+                }
+            } catch (error) {
+                console.error('上传文件失败:', error);
+                showNotification(`上传文件失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 显示删除确认
+        function showDeleteConfirm(filePath) {
+            document.getElementById('deleteConfirmMessage').textContent = `确定要删除 "${filePath}" 吗？此操作不可恢复！`;
+            showModal(deleteConfirmModal);
+        }
+        
+        // 保存历史记录
+        function saveHistory() {
+            const currentContent = editor.value;
+            if (fileHistory[historyIndex] !== currentContent) {
+                fileHistory = fileHistory.slice(0, historyIndex + 1);
+                fileHistory.push(currentContent);
+                historyIndex++;
+                
+                // 限制历史记录数量
+                if (fileHistory.length > 50) {
+                    fileHistory.shift();
+                    historyIndex--;
+                }
+            }
+        }
+        
+        // 撤销
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                editor.value = fileHistory[historyIndex];
+                unsavedChanges = true;
+                updateUnsavedIndicator();
+                updateCursorPosition();
+            }
+        }
+        
+        // 重做
+        function redo() {
+            if (historyIndex < fileHistory.length - 1) {
+                historyIndex++;
+                editor.value = fileHistory[historyIndex];
+                unsavedChanges = true;
+                updateUnsavedIndicator();
+                updateCursorPosition();
+            }
+        }
+        
+        // 格式化代码
+        function formatCode() {
+            // 简单的 JSON 格式化
+            try {
+                const content = editor.value;
+                const parsed = JSON.parse(content);
+                editor.value = JSON.stringify(parsed, null, 2);
+                unsavedChanges = true;
+                updateUnsavedIndicator();
+                showNotification('代码格式化成功', 'success');
+            } catch (e) {
+                // 如果不是 JSON，尝试简单的缩进
+                showNotification('无法格式化：不是有效的 JSON', 'warning');
+            }
+        }
+        
+        // 更新保存按钮状态
+        function updateSaveButtonState() {
+            saveBtn.disabled = !currentFile;
+            downloadBtn.disabled = !currentFile;
+            deleteBtn.disabled = !currentFile;
+        }
+        
+        // 更新未保存指示器
+        function updateUnsavedIndicator() {
+            if (unsavedChanges && currentFile) {
+                unsavedIndicator.textContent = '● 有未保存的更改';
+                unsavedIndicator.style.color = '#f39c12';
+            } else {
+                unsavedIndicator.textContent = '';
+            }
+        }
+        
+        // 更新光标位置
+        function updateCursorPosition() {
+            const cursorPos = editor.selectionStart;
+            const text = editor.value.substring(0, cursorPos);
+            const lines = text.split('\n');
+            const lineNum = lines.length;
+            const colNum = lines[lines.length - 1].length + 1;
+            
+            cursorPosition.textContent = `行: ${lineNum}, 列: ${colNum}`;
+        }
+        
+        // 验证文件名
+        function isValidFileName(name) {
+            const illegalChars = /[<>:"/\\|?*]/g;
+            return !illegalChars.test(name) && name.trim().length > 0;
+        }
+        
+        // 显示模态框
+        function showModal(modal) {
+            modal.style.display = 'block';
+        }
+        
+        // 隐藏模态框
+        function hideModal(modal) {
+            modal.style.display = 'none';
+        }
+        
+        // 隐藏所有模态框
+        function hideAllModals() {
+            newFileModal.style.display = 'none';
+            newFolderModal.style.display = 'none';
+            uploadModal.style.display = 'none';
+            deleteConfirmModal.style.display = 'none';
+        }
+        
+        // 显示通知
+        function showNotification(message, type = 'info') {
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // HTML 转义
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
