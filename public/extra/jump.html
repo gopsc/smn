@@ -36,53 +36,6 @@
             flex-direction: column;
         }
 
-        .auth-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-        }
-
-        .auth-box {
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            width: 400px;
-            max-width: 90%;
-        }
-
-        .auth-box h2 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #333;
-        }
-
-        .auth-form input {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .auth-form button {
-            width: 100%;
-            padding: 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .auth-form button:hover {
-            background: #5a67d8;
-        }
-
         .main-container {
             display: flex;
             height: 100%;
@@ -561,7 +514,6 @@
             margin-bottom: 16px;
         }
 
-        /* 连接状态指示器 */
         .connection-status {
             display: inline-block;
             width: 10px;
@@ -589,29 +541,116 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        .connection-panel {
+            padding: 16px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+
+        .connection-panel h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            color: #333;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .ws-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .ws-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .ws-btn-primary:hover:not(:disabled) {
+            background: #5a67d8;
+        }
+
+        .ws-btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .ws-btn-secondary:hover:not(:disabled) {
+            background: #d0d0d0;
+        }
+
+        .ws-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
     <div id="app">
-        <div class="auth-container" id="authView">
-            <div class="auth-box">
-                <h2>🛡️ 堡垒机系统</h2>
-                <div id="loginForm" class="auth-form">
-                    <input type="text" id="loginUsername" placeholder="用户名" autocomplete="username">
-                    <button onclick="login()">登录</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="main-container" id="mainView" style="display: none;">
+        <div class="main-container">
             <div class="sidebar">
                 <div class="user-info">
-                    <h3 id="usernameDisplay"></h3>
-                    <p id="roleDisplay"></p>
+                    <h3 id="usernameDisplay">堡垒机管理员</h3>
+                    <p id="roleDisplay">管理员</p>
                     <div class="user-actions">
                         <button class="logout-btn" onclick="logout()">退出登录</button>
                     </div>
                 </div>
+                
+                <div class="connection-panel">
+                    <h3><i class="fas fa-plug"></i> WebSocket 代理设置</h3>
+                    <div class="input-group">
+                        <label>目标 WebSocket 地址:</label>
+                        <input type="text" id="ws-target-url" value="ws://localhost:5002" placeholder="ws://localhost:5002">
+                    </div>
+                    <div class="button-group">
+                        <button id="ws-connect-btn" class="ws-btn ws-btn-primary" onclick="connectWebSocketProxy()">
+                            <i class="fas fa-plug"></i> 连接
+                        </button>
+                        <button id="ws-disconnect-btn" class="ws-btn ws-btn-secondary" onclick="disconnectWebSocketProxy()" disabled>
+                            <i class="fas fa-power-off"></i> 断开
+                        </button>
+                    </div>
+                    <div class="connection-status-area" style="margin-top: 8px; font-size: 12px; color: #666;">
+                        <span id="ws-status-text">未连接</span>
+                    </div>
+                </div>
+                
                 <div class="sidebar-nav">
                     <div class="nav-item active" onclick="switchView('servers')">📁 服务器列表</div>
                     <div class="nav-item" onclick="switchView('sessions')">📊 会话记录</div>
@@ -705,7 +744,7 @@
     <script>
         // 全局变量
         let socket = null;
-        let currentUser = null;
+        let currentUser = { username: 'admin', is_admin: true };
         let currentSessionId = null;
         let currentServer = null;
         let currentView = 'servers';
@@ -715,231 +754,172 @@
         let resizeTimeout = null;
         let terminalResizeObserver = null;
         let isConnecting = false;
-        let socketConnected = false;
         let wsProxyConnected = false;
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
 
-        // API 基础路径（通过文件浏览器代理访问）
+        // API 基础路径
         const API_BASE = '/proxy/http://localhost:5001/api';
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            checkLoginStatus();
+            loadServers();
+            loadSessions();
         });
 
-        async function checkLoginStatus() {
-            try {
-                const response = await fetch(`${API_BASE}/auth/me`, {
-                    credentials: 'include',
-                    headers: {
-                        'X-Proxy-User': localStorage.getItem('bastion_username') || ''
-                    }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.authenticated) {
-                        currentUser = { username: data.username, is_admin: true };
-                        showMainView();
-                    } else {
-                        showAuthView();
-                    }
-                } else {
-                    showAuthView();
-                }
-            } catch (error) {
-                console.log('检查登录状态失败:', error);
-                showAuthView();
-            }
-        }
-
-        function showAuthView() {
-            document.getElementById('authView').style.display = 'flex';
-            document.getElementById('mainView').style.display = 'none';
-        }
-
-        async function login() {
-            const username = document.getElementById('loginUsername').value.trim();
-
-            if (!username) {
-                showNotification('请输入用户名', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE}/auth/login`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username}),
-                    credentials: 'include'
-                });
-
-                const data = await response.json();
-                if (response.ok) {
-                    currentUser = data.user;
-                    localStorage.setItem('bastion_username', username);
-                    showMainView();
-                    showNotification('登录成功', 'success');
-                } else {
-                    showNotification(data.error || '登录失败', 'error');
-                }
-            } catch (error) {
-                showNotification('登录失败: ' + error.message, 'error');
-            }
-        }
-
         async function logout() {
-            try {
-                await fetch(`${API_BASE}/auth/logout`, {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-            } catch (error) {
-                console.log('登出请求失败:', error);
-            }
-            
             if (socket) {
                 socket.disconnect();
                 socket = null;
             }
-            
             destroyTerminal();
-            
-            currentUser = null;
-            socketConnected = false;
             wsProxyConnected = false;
-            localStorage.removeItem('bastion_username');
-            showAuthView();
+            updateConnectionStatus(false);
             showNotification('已退出登录', 'info');
+            location.reload();
         }
 
-        function showMainView() {
-            document.getElementById('authView').style.display = 'none';
-            document.getElementById('mainView').style.display = 'flex';
-            document.getElementById('usernameDisplay').textContent = currentUser.username;
-            document.getElementById('roleDisplay').textContent = '管理员';
-
-            loadServers();
-            initializeSocket();
+        function updateConnectionStatus(connected) {
+            const statusText = document.getElementById('ws-status-text');
+            const connectBtn = document.getElementById('ws-connect-btn');
+            const disconnectBtn = document.getElementById('ws-disconnect-btn');
+            
+            if (connected) {
+                statusText.innerHTML = '<span style="color: #28a745;">● 已连接</span>';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            } else {
+                statusText.innerHTML = '<span style="color: #dc3545;">● 未连接</span>';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            }
         }
 
-        // 初始化WebSocket - 连接文件浏览器的 Socket.IO 代理
-        function initializeSocket() {
-            if (typeof io === 'undefined') {
-                console.error('Socket.io not loaded');
-                showNotification('Socket.io加载失败，请刷新页面', 'error');
+        function connectWebSocketProxy() {
+            const targetUrl = document.getElementById('ws-target-url').value.trim();
+            if (!targetUrl) {
+                showNotification('请输入目标 WebSocket 地址', 'error');
                 return;
             }
             
-            // 连接到文件浏览器的 Socket.IO 服务
-            const socketUrl = window.location.origin;
+            if (!targetUrl.startsWith('ws://') && !targetUrl.startsWith('wss://')) {
+                showNotification('WebSocket地址必须以 ws:// 或 wss:// 开头', 'error');
+                return;
+            }
             
-            console.log('Connecting to Socket.IO at:', socketUrl);
+            showNotification('正在连接 Socket.IO 代理...', 'info');
             
-            socket = io(socketUrl, {
+            socket = io(window.location.origin, {
                 transports: ['websocket', 'polling'],
                 reconnection: true,
                 reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
                 reconnectionDelay: 1000,
-                reconnectionDelayMax: 5000,
-                timeout: 20000,
                 withCredentials: true
             });
             
-            socket.on('connect', function() {
-                console.log('Socket.IO connected to file browser');
-                socketConnected = true;
-                reconnectAttempts = 0;
-                showNotification('WebSocket连接成功', 'success');
-                
-                // 连接成功后，通过 ws_connect 连接到堡垒机后端
-                const targetUrl = 'ws://localhost:5001';
-                console.log('Connecting to bastion backend via proxy:', targetUrl);
+            socket.on('connect', () => {
+                console.log('Socket.IO 连接成功');
+                showNotification('Socket.IO 连接成功，正在连接目标 WebSocket...', 'info');
                 socket.emit('ws_connect', { target_url: targetUrl });
             });
-
-            socket.on('connect_error', function(error) {
-                console.error('Socket.IO connection error:', error);
-                socketConnected = false;
-                reconnectAttempts++;
-                
-                if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                    showNotification('WebSocket连接失败，请刷新页面重试', 'error');
-                }
+            
+            socket.on('ws_connecting', (data) => {
+                console.log('正在连接目标:', data);
+                showNotification(`正在连接 ${targetUrl}...`, 'info');
             });
-
-            socket.on('ws_connecting', function(data) {
-                console.log('Connecting to target:', data);
-                showNotification('正在连接堡垒机后端...', 'info');
-            });
-
-            socket.on('ws_connected', function(data) {
-                console.log('Connected to bastion backend:', data);
+            
+            socket.on('ws_connected', (data) => {
+                console.log('WebSocket 代理连接成功:', data);
                 wsProxyConnected = true;
-                showNotification('已连接到堡垒机后端', 'success');
+                updateConnectionStatus(true);
+                showNotification(`✅ 已连接到堡垒机后端`, 'success');
             });
-
-            socket.on('ws_message', function(data) {
-                console.log('Received message from bastion:', data);
+            
+            socket.on('ws_message', (data) => {
                 try {
-                    const message = JSON.parse(data.data);
-                    if (message.type === 'connected' && message.session_id) {
-                        currentSessionId = message.session_id;
-                        isConnecting = false;
-                        showNotification('SSH连接成功', 'success');
-                        if (terminal) {
-                            terminal.focus();
-                        }
-                    } else if (message.type === 'output') {
-                        if (terminal && message.session_id === currentSessionId) {
-                            terminal.write(message.data);
-                        }
-                    } else if (message.type === 'error') {
-                        showNotification(message.message, 'error');
-                        if (terminal) {
-                            terminal.write(`\r\n\x1b[31m错误: ${message.message}\x1b[0m\r\n`);
-                        }
-                    } else if (message.type === 'disconnected') {
-                        currentSessionId = null;
-                        if (terminal) {
-                            terminal.write('\r\n\x1b[31mSSH连接已断开\x1b[0m\r\n');
-                        }
+                    let messageData = data;
+                    if (typeof data === 'object' && data.data) {
+                        messageData = data.data;
                     }
+                    const message = JSON.parse(messageData);
+                    handleBackendMessage(message);
                 } catch (e) {
-                    // 如果不是 JSON，作为原始数据输出
-                    if (terminal) {
-                        terminal.write(data.data);
+                    console.error('解析消息失败:', e, data);
+                    if (terminal && typeof data === 'string') {
+                        terminal.write(data);
                     }
                 }
             });
-
-            socket.on('ws_error', function(data) {
-                console.error('WebSocket proxy error:', data);
-                isConnecting = false;
+            
+            socket.on('ws_error', (data) => {
+                console.error('WebSocket 代理错误:', data);
                 wsProxyConnected = false;
+                updateConnectionStatus(false);
                 showNotification(data.error || '代理错误', 'error');
                 if (terminal) {
-                    terminal.write(`\r\n\x1b[31m代理错误: ${data.error || '未知错误'}\x1b[0m\r\n`);
+                    terminal.write(`\r\n\x1b[31m错误: ${data.error || '连接失败'}\x1b[0m\r\n`);
                 }
             });
-
-            socket.on('ws_disconnected', function(data) {
-                console.log('Disconnected from target:', data);
+            
+            socket.on('ws_disconnected', (data) => {
+                console.log('WebSocket 断开:', data);
                 wsProxyConnected = false;
+                updateConnectionStatus(false);
                 showNotification('堡垒机后端连接已断开', 'warning');
-            });
-
-            socket.on('disconnect', function() {
-                console.log('Socket.IO disconnected');
-                socketConnected = false;
-                wsProxyConnected = false;
-                if (currentSessionId) {
-                    if (terminal) {
-                        terminal.write('\r\n\x1b[33mWebSocket连接已断开，尝试重连...\x1b[0m\r\n');
-                    }
-                    showNotification('WebSocket连接断开，正在重连...', 'warning');
+                if (terminal) {
+                    terminal.write('\r\n\x1b[33m连接已断开\x1b[0m\r\n');
                 }
             });
+            
+            socket.on('disconnect', () => {
+                console.log('Socket.IO 断开');
+                wsProxyConnected = false;
+                updateConnectionStatus(false);
+                showNotification('Socket.IO 连接断开', 'warning');
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('Socket.IO 连接错误:', error);
+                showNotification(`连接错误: ${error.message}`, 'error');
+            });
+        }
+        
+        function disconnectWebSocketProxy() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            wsProxyConnected = false;
+            updateConnectionStatus(false);
+            if (currentSessionId) {
+                currentSessionId = null;
+            }
+            showNotification('已断开连接', 'info');
+        }
+        
+        function handleBackendMessage(message) {
+            if (message.type === 'connected' && message.session_id) {
+                currentSessionId = message.session_id;
+                isConnecting = false;
+                showNotification('SSH连接成功', 'success');
+                if (terminal) {
+                    terminal.focus();
+                }
+            } else if (message.type === 'output') {
+                if (terminal && message.session_id === currentSessionId) {
+                    terminal.write(message.data);
+                }
+            } else if (message.type === 'error') {
+                showNotification(message.message, 'error');
+                if (terminal) {
+                    terminal.write(`\r\n\x1b[31m错误: ${message.message}\x1b[0m\r\n`);
+                }
+            } else if (message.type === 'disconnected') {
+                currentSessionId = null;
+                if (terminal) {
+                    terminal.write('\r\n\x1b[31mSSH连接已断开\x1b[0m\r\n');
+                }
+            }
         }
 
         function switchView(view) {
@@ -972,13 +952,11 @@
                 terminalResizeObserver.disconnect();
                 terminalResizeObserver = null;
             }
-            
             if (terminal) {
                 terminal.dispose();
                 terminal = null;
                 fitAddon = null;
             }
-            
             if (resizeTimeout) {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = null;
@@ -1091,15 +1069,8 @@
                 return;
             }
             
-            if (!socket || !socket.connected) {
-                showNotification('WebSocket未连接，正在重连...', 'warning');
-                initializeSocket();
-                setTimeout(() => connectToServer(serverId, serverName, serverHost, serverPort), 1500);
-                return;
-            }
-            
-            if (!wsProxyConnected) {
-                showNotification('堡垒机后端未连接，请稍候...', 'warning');
+            if (!socket || !socket.connected || !wsProxyConnected) {
+                showNotification('请先点击"连接"按钮连接到堡垒机后端', 'warning');
                 return;
             }
             
@@ -1117,8 +1088,6 @@
                 if (terminal && socket && socket.connected && wsProxyConnected) {
                     const cols = terminal.cols || 80;
                     const rows = terminal.rows || 24;
-                    
-                    console.log('Connecting to server with size:', {cols, rows});
                     
                     const message = JSON.stringify({
                         type: 'connect_server',
@@ -1164,9 +1133,7 @@
             try {
                 const response = await fetch(`${API_BASE}/servers`, {
                     credentials: 'include',
-                    headers: {
-                        'X-Proxy-User': currentUser?.username || ''
-                    }
+                    headers: { 'X-Proxy-User': currentUser?.username || '' }
                 });
                 const servers = await response.json();
                 
@@ -1204,12 +1171,8 @@
 
         async function editServer(serverId) {
             try {
-                const response = await fetch(`${API_BASE}/servers/${serverId}`, {
-                    credentials: 'include'
-                });
-                
+                const response = await fetch(`${API_BASE}/servers/${serverId}`, { credentials: 'include' });
                 if (!response.ok) throw new Error('获取服务器信息失败');
-                
                 const server = await response.json();
                 
                 document.getElementById('serverModalTitle').textContent = '编辑服务器';
@@ -1236,13 +1199,11 @@
 
         async function deleteServer() {
             if (!deleteTargetId) return;
-            
             try {
                 const response = await fetch(`${API_BASE}/servers/${deleteTargetId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
-                
                 if (response.ok) {
                     showNotification('服务器删除成功', 'success');
                     hideModal('deleteConfirmModal');
@@ -1266,7 +1227,6 @@
             document.getElementById('serverUsername').value = '';
             document.getElementById('serverPassword').value = '';
             document.getElementById('serverDescription').value = '';
-            
             showModal('serverModal');
         }
 
@@ -1288,17 +1248,14 @@
             }
 
             const password = document.getElementById('serverPassword').value;
-            if (password) {
-                serverData.password = password;
-            }
+            if (password) serverData.password = password;
 
             try {
                 const url = isEdit ? `${API_BASE}/servers/${serverId}` : `${API_BASE}/servers`;
                 const method = isEdit ? 'PUT' : 'POST';
-                
                 const response = await fetch(url, {
                     method: method,
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(serverData),
                     credentials: 'include'
                 });
@@ -1318,15 +1275,12 @@
 
         async function loadSessions() {
             try {
-                const response = await fetch(`${API_BASE}/sessions`, {
-                    credentials: 'include'
-                });
+                const response = await fetch(`${API_BASE}/sessions`, { credentials: 'include' });
                 const sessions = await response.json();
-                
                 const tbody = document.getElementById('sessionsList');
                 
                 if (!sessions || sessions.length === 0) {
-                    tbody.innerHTML = '发展<td colspan="5" class="empty-state">暂无会话记录</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无会话记录</td></tr>';
                     return;
                 }
 
@@ -1336,7 +1290,7 @@
                     tr.innerHTML = `
                         <td>${escapeHtml(session.username)}</td>
                         <td>${escapeHtml(session.server_name)}</td>
-                        <td>${new Date(session.start_time).toLocaleString()}</td>
+                        <td>${session.start_time ? new Date(session.start_time).toLocaleString() : '-'}</td>
                         <td>${session.end_time ? new Date(session.end_time).toLocaleString() : '进行中'}</td>
                         <td><button class="btn btn-primary" onclick="viewSession('${session.session_id}')">查看详情</button></td>
                     `;
@@ -1350,11 +1304,8 @@
 
         async function viewSession(sessionId) {
             try {
-                const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
-                    credentials: 'include'
-                });
+                const response = await fetch(`${API_BASE}/sessions/${sessionId}`, { credentials: 'include' });
                 const session = await response.json();
-                
                 const commandsDiv = document.getElementById('sessionCommands');
                 
                 if (session.commands && session.commands.length > 0) {
@@ -1362,12 +1313,7 @@
                     session.commands.forEach(cmd => {
                         const div = document.createElement('div');
                         div.className = 'command-item';
-                        div.innerHTML = `
-                            <div>
-                                <span class="cmd">$ ${escapeHtml(cmd.command)}</span>
-                                <span class="time">${new Date(cmd.timestamp).toLocaleString()}</span>
-                            </div>
-                        `;
+                        div.innerHTML = `<div><span class="cmd">$ ${escapeHtml(cmd.command)}</span><span class="time">${new Date(cmd.timestamp).toLocaleString()}</span></div>`;
                         commandsDiv.appendChild(div);
                     });
                 } else {
@@ -1383,12 +1329,7 @@
 
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
         function showModal(id) {
@@ -1403,12 +1344,8 @@
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.textContent = message;
-            
             document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
+            setTimeout(() => notification.remove(), 3000);
         }
     </script>
 </body>
