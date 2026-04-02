@@ -2125,7 +2125,8 @@ if __name__ == '__main__':
             # 使用 socketio 启动 HTTPS
             socketio.run(app, host=host, port=port, 
                         ssl_context=(SSL_CERT_FILE, SSL_KEY_FILE), 
-                        debug=False)
+                        debug=False,
+                        allow_unsafe_werkzeug=True)
         else:
             print(f"❌ 错误: SSL证书文件不存在!")
             exit(1)
