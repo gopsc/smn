@@ -1,51 +1,102 @@
-# Flask 文件浏览器系统
+# 文件浏览器服务器
 
-一个功能完整的文件浏览器系统，支持用户认证、文件管理、HTTP/WebSocket代理和审计日志功能。
+一个功能完善的 Web 文件管理工具，支持用户认证、文件操作和代理功能。
+
+## 📖 简介
+
+这是一个基于 Flask 开发的 Web 应用，可以让你通过浏览器安全地管理服务器上的文件和目录。它提供了用户登录认证、文件上传下载、在线编辑、目录管理等核心功能，并支持 HTTP/WebSocket 代理。
 
 ## ✨ 主要功能
 
-### 🔐 用户管理
-- 用户注册和登录
-- 密码强度验证（长度、大小写、数字）
-- 登录失败限制（5次失败锁定15分钟）
-- 会话管理（24小时有效期）
-- 管理员权限控制
-
 ### 📁 文件管理
-- 文件/目录浏览
-- 文件上传（支持多种格式）
-- 文件/目录重命名、移动、删除
-- 批量删除
-- 文件下载
+- 浏览目录和文件列表
+- 上传文件（无类型限制）
+- 下载文件
+- 在线查看和编辑文本文件
+- 创建文件夹
+- 重命名文件/文件夹
+- 移动文件/文件夹
+- 删除文件/文件夹（支持批量删除）
+
+### 👥 用户管理
+- 用户注册和登录
+- 密码修改
+- 管理员可以管理所有用户（创建、禁用、删除、重置密码）
+- 登录失败锁定机制（5次失败锁定15分钟）
+
+### 🔐 安全特性
+- 会话管理（24小时有效期）
+- 密码强度要求（长度、大小写、数字）
+- 操作日志记录
+- 登录尝试记录
+- 路径遍历防护
 
 ### 🔀 代理功能
-- HTTP/HTTPS代理请求
-- WebSocket代理（通过Socket.IO）
+- HTTP/HTTPS 请求代理
+- WebSocket 代理（通过 Socket.IO）
 - 目标地址白名单控制
-- 代理状态监控
 
-### 📊 审计与监控
-- 文件操作日志记录
-- 登录尝试记录
+### 📊 审计功能（仅管理员）
+- 查看文件操作历史
+- 查看登录尝试记录
 - 系统统计信息
-- 健康检查接口
 
 ## 🚀 快速开始
 
 ### 环境要求
 
-- Python 3.7+
-- pip
+- Python 3.8+
+- pip 包管理器
 
-### 安装依赖
+### 安装步骤
 
+1. **下载代码**
 ```bash
-pip install flask flask-cors flask-sqlalchemy flask-limiter flask-socketio werkzeug requests websocket-client
+git clone <仓库地址>
+cd <项目目录>
 ```
 
-### 配置
+2. **安装依赖**
+```bash
+pip install -r requirements.txt
+```
 
-创建 `config.ini` 配置文件（可选）：
+### 基础依赖包
+```txt
+Flask
+Flask-CORS
+Flask-SQLAlchemy
+Flask-Limiter
+Flask-SocketIO
+Werkzeug
+requests
+websocket-client
+```
+
+### 启动服务器
+
+#### 方式一：直接启动
+```bash
+python app.py
+```
+
+#### 方式二：初始化数据库后启动
+```bash
+# 先初始化数据库
+python app.py --init-db
+
+# 然后正常启动
+python app.py
+```
+
+#### 方式三：使用自定义配置文件
+```bash
+python app.py --config /path/to/myconfig.ini
+```
+
+## ⚙️ 配置文件
+
+创建 `config.ini` 文件来配置服务器：
 
 ```ini
 [server]
@@ -66,282 +117,213 @@ allowed_origins = http://localhost:5000,http://127.0.0.1:5000
 [security]
 max_content_length_mb = 100
 session_lifetime_hours = 24
-rate_limit_default = 200 per day;50 per hour
 
 [proxy]
 enabled = true
 allowed_targets = http://localhost:8000,http://localhost:8080,ws://localhost:8765
 ```
 
-### 初始化数据库
+### 配置说明
 
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `server.host` | 监听地址 | 0.0.0.0 |
+| `server.port` | 监听端口 | 5000 |
+| `directory.root` | 文件根目录 | 空（不启用文件功能） |
+| `ssl.enabled` | 是否启用HTTPS | false |
+| `proxy.enabled` | 是否启用代理 | true |
+
+## 📱 使用说明
+
+### 首次使用
+
+1. **启动服务器**
 ```bash
 python app.py --init-db
-```
-
-这将创建SQLite数据库和默认管理员账户：
-- 用户名：`admin`
-- 密码：`Admin@123456`
-
-**⚠️ 重要：请在生产环境中立即修改默认密码！**
-
-### 启动服务
-
-```bash
-# 使用配置文件启动
-python app.py --config config.ini
-
-# 不使用配置文件（文件系统功能需配置）
 python app.py
 ```
 
-## 📖 API文档
+2. **访问页面**
+打开浏览器访问：`http://localhost:5000`
 
-### 认证相关
+3. **登录系统**
+- 用户名：`admin`
+- 密码：`Admin@123456`
 
-#### 用户登录
-```http
-POST /api/login
-Content-Type: application/json
-
-{
-    "username": "admin",
-    "password": "Admin@123456"
-}
-```
-
-#### 用户注册（需管理员权限）
-```http
-POST /api/register
-Authorization: (会话Cookie)
-
-{
-    "username": "newuser",
-    "password": "Password123"
-}
-```
-
-#### 修改密码
-```http
-POST /api/change-password
-Authorization: (会话Cookie)
-
-{
-    "old_password": "Admin@123456",
-    "new_password": "NewPassword123"
-}
-```
+**⚠️ 重要提示**：首次登录后请立即修改管理员密码！
 
 ### 文件管理
 
-#### 获取文件列表
-```http
-GET /api/files
-Authorization: (会话Cookie)
-```
+#### 浏览文件
+- 点击文件夹进入子目录
+- 面包屑导航可以快速返回上级目录
 
 #### 上传文件
-```http
-POST /upload
-Authorization: (会话Cookie)
-Content-Type: multipart/form-data
+1. 点击"上传"按钮
+2. 选择文件（可多选）
+3. 等待上传完成
 
-file: (文件)
-path: (可选) 上传目录
-```
+#### 下载文件
+- 点击文件旁的"下载"按钮
 
-#### 创建文件夹
-```http
-POST /api/folders
-Authorization: (会话Cookie)
+#### 编辑文件
+- 点击文本文件旁的"编辑"按钮
+- 在线修改内容后保存（限10MB以内）
 
-{
-    "name": "new_folder",
-    "path": "parent/path"  // 可选
-}
-```
+#### 新建文件夹
+1. 点击"新建文件夹"按钮
+2. 输入文件夹名称
 
 #### 重命名
-```http
-POST /api/rename
-Authorization: (会话Cookie)
+1. 点击项目旁的"重命名"按钮
+2. 输入新名称
 
-{
-    "old_path": "oldname.txt",
-    "new_name": "newname.txt",
-    "type": "file"  // 或 "dir"
-}
-```
+#### 移动文件/文件夹
+1. 选中要移动的项目
+2. 点击"移动"按钮
+3. 选择目标文件夹
 
-#### 移动文件/目录
-```http
-POST /api/move
-Authorization: (会话Cookie)
+#### 删除
+- 单个删除：点击"删除"按钮
+- 批量删除：勾选多个项目后点击"批量删除"
 
-{
-    "source_paths": ["file1.txt", "folder1"],
-    "target_path": "destination/"
-}
-```
+### 用户管理（管理员）
 
-#### 删除（单个）
-```http
-POST /delete
-Authorization: (会话Cookie)
+#### 创建用户
+1. 进入"用户管理"页面
+2. 点击"创建用户"
+3. 输入用户名和密码
 
-{
-    "name": "filename.txt",
-    "recursive": false  // 删除目录时是否递归
-}
-```
-
-#### 批量删除
-```http
-POST /delete-multiple
-Authorization: (会话Cookie)
-
-{
-    "items": ["file1.txt", "folder1"],
-    "recursive": false
-}
-```
+#### 管理用户
+- 启用/禁用用户
+- 重置用户密码
+- 删除用户（不能删除管理员自己）
 
 ### 代理功能
 
-#### HTTP代理
-```http
-GET/POST/PUT/DELETE /proxy/<target_url>
-Authorization: (会话Cookie)
+#### HTTP 代理
+访问：`/proxy/目标地址`
+例如：`http://localhost:5000/proxy/api.example.com/data`
 
-# 示例：
-GET /proxy/http://localhost:8000/api/data
-```
+#### WebSocket 代理
+通过前端 Socket.IO 连接，需要前端配合实现。
 
-#### WebSocket代理（通过Socket.IO）
-```javascript
-// 连接WebSocket
-const socket = io('http://localhost:5000');
+## 🔧 API 接口
 
-// 连接目标WebSocket
-socket.emit('ws_connect', {
-    target_url: 'ws://localhost:8765'
-});
+### 认证相关
 
-// 发送消息
-socket.emit('ws_send', {
-    message: 'Hello WebSocket!'
-});
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/login` | POST | 用户登录 |
+| `/api/logout` | POST | 用户登出 |
+| `/api/check-auth` | GET | 检查登录状态 |
+| `/api/change-password` | POST | 修改密码 |
 
-// 接收消息
-socket.on('ws_message', (data) => {
-    console.log('Received:', data);
-});
-```
+### 文件操作
 
-### 管理功能（需管理员权限）
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/filelist` | GET | 获取文件列表 |
+| `/upload` | POST | 上传文件 |
+| `/download/<path>` | GET | 下载文件 |
+| `/read-file/<path>` | GET | 读取文件内容 |
+| `/save-file` | POST | 保存文件内容 |
+| `/api/rename` | POST | 重命名 |
+| `/api/folders` | POST | 创建文件夹 |
+| `/api/move` | POST | 移动项目 |
+| `/delete` | POST | 删除单个 |
+| `/delete-multiple` | POST | 批量删除 |
 
-#### 获取用户列表
-```http
-GET /api/users
-```
+### 用户管理（管理员）
 
-#### 删除用户
-```http
-DELETE /api/users/{user_id}
-```
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/register` | POST | 创建用户 |
+| `/api/users` | GET | 获取用户列表 |
+| `/api/users/<id>` | DELETE | 删除用户 |
+| `/api/users/<id>/toggle-status` | POST | 启用/禁用用户 |
+| `/api/admin/users/<id>/password` | POST | 管理员重置密码 |
 
-#### 切换用户状态
-```http
-POST /api/users/{user_id}/toggle-status
-```
+### 审计日志（管理员）
 
-#### 获取审计日志
-```http
-GET /api/audit/file-operations?page=1&per_page=50
-GET /api/audit/login-attempts?page=1&per_page=50
-```
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/audit/file-operations` | GET | 文件操作日志 |
+| `/api/audit/login-attempts` | GET | 登录尝试日志 |
+| `/api/stats` | GET | 系统统计信息 |
 
-#### 系统统计
-```http
-GET /api/stats
-```
+### 代理相关
 
-### 系统监控
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/proxy/<path>` | 各种方法 | HTTP/HTTPS代理 |
+| `/api/proxy/status` | GET | 代理状态 |
+| `/api/proxy/test` | POST | 测试代理目标 |
 
-#### 健康检查
-```http
-GET /health
-```
+### 系统
 
-#### 文件系统状态
-```http
-GET /api/filesystem-status
-```
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/health` | GET | 健康检查 |
 
-#### 代理状态
-```http
-GET /api/proxy/status
-Authorization: (会话Cookie)
-```
+## 🔒 安全说明
 
-## 🔧 配置说明
+### 密码要求
+- 最小长度：8个字符
+- 必须包含：大写字母、小写字母、数字
+- 特殊字符：可选（默认不强制）
 
-### 安全配置
-- **密码策略**：最小长度8，必须包含大小写字母和数字
-- **登录限制**：5次失败后锁定15分钟
-- **会话超时**：24小时
-- **文件上传限制**：默认100MB
+### 会话安全
+- 会话有效期：24小时
+- Cookie：HttpOnly、SameSite=Lax
+- 会话存储在服务端
 
-### 代理安全
-- 目标地址白名单控制
-- 代理操作需登录认证
-- 请求头自动添加用户标识（`X-Proxy-User`, `X-Proxy-User-ID`）
+### 访问控制
+- 文件操作需要登录
+- 用户管理需要管理员权限
+- 代理功能需要登录
+- `users` 文件夹需要登录才能访问
 
-## 📝 日志文件
+### 限流保护
+- 登录：5次/分钟
+- 注册：10次/小时
+- 文件操作：按操作类型限制
+- 默认全局限流：200次/天，50次/小时
 
-系统自动生成 `app.log` 文件，采用轮转日志：
-- 最大文件大小：10MB
-- 保留备份数：10个
+## 📝 日志
 
-## 🔒 安全建议
+日志文件位置：`app.log`
+- 自动轮转（10MB/文件，保留10个备份）
+- 记录所有操作和错误
 
-1. **立即修改默认密码**：首次启动后立即修改admin密码
-2. **使用HTTPS**：生产环境务必启用SSL
-3. **限制代理目标**：仅添加可信的代理目标到白名单
-4. **定期审计日志**：检查异常操作和登录尝试
-5. **备份数据库**：定期备份 `instance/users.db` 文件
-6. **限制访问IP**：可通过防火墙限制访问来源
+## ❓ 常见问题
 
-## 🐛 故障排除
+### Q: 启动时提示数据库错误？
+A: 确保 `instance` 目录有写入权限，或运行 `python app.py --init-db` 重新初始化。
 
-### 数据库连接问题
-```bash
-# 检查数据库文件权限
-ls -la instance/users.db
+### Q: 上传文件失败？
+A: 检查 `config.ini` 中的 `max_content_length_mb` 设置是否足够大。
 
-# 手动验证数据库
-sqlite3 instance/users.db "SELECT * FROM users;"
-```
+### Q: 无法访问文件？
+A: 确保 `directory.root` 配置正确，并且路径存在且可读。
 
-### 文件系统权限
-确保配置的根目录具有正确的读写权限：
-```bash
-chmod 755 /path/to/your/files
-```
+### Q: 忘记管理员密码？
+A: 运行 `python app.py --init-db` 重置数据库（会清空所有用户数据）。
 
-### 代理连接问题
-- 检查目标地址是否在白名单中
-- 确认目标服务正在运行
-- 查看防火墙设置
+### Q: 代理功能无法使用？
+A: 检查 `config.ini` 中 `proxy.enabled = true`，并且目标地址在白名单中。
+
+### Q: WebSocket 代理不工作？
+A: 确保目标地址以 `ws://` 或 `wss://` 开头，并且在 `allowed_targets` 白名单中。
 
 ## 📄 许可证
 
-本项目遵循MIT许可证。
+本项目仅供学习和内部使用。
 
-## 🤝 贡献
+---
 
-欢迎提交Issue和Pull Request！
-
-## 📧 联系方式
-
-如有问题，请通过GitHub Issues联系。
+**提示**：生产环境部署时，请务必：
+1. 修改默认管理员密码
+2. 启用 HTTPS（配置 SSL）
+3. 设置合适的文件根目录
+4. 根据需要调整白名单

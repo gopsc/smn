@@ -877,328 +877,6 @@ def get_file_list():
         return jsonify({'error': f'获取文件列表失败: {str(e)}'}), 500
 
 # ==================== 文件读取和保存视图 ====================
-@app.route('/file-editor', methods=['GET'])
-@login_required
-@filesystem_required
-def file_editor_view():
-    """文件编辑器视图，用于读取和保存文件"""
-    # 返回一个简单的HTML页面用于文件编辑
-    html_content = '''
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件编辑器</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background-color: #333;
-            color: white;
-            padding: 15px 20px;
-        }
-        .editor-container {
-            display: flex;
-            height: 600px;
-        }
-        .sidebar {
-            width: 250px;
-            border-right: 1px solid #ddd;
-            background-color: #f9f9f9;
-            overflow-y: auto;
-        }
-        .file-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .file-list li {
-            padding: 10px 15px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .file-list li:hover {
-            background-color: #e9e9e9;
-        }
-        .file-list li.selected {
-            background-color: #007bff;
-            color: white;
-        }
-        .file-list li.dir::before {
-            content: "📁 ";
-        }
-        .file-list li.file::before {
-            content: "📄 ";
-        }
-        .editor-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .editor-header {
-            padding: 10px 15px;
-            background-color: #f0f0f0;
-            border-bottom: 1px solid #ddd;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .file-path {
-            font-weight: bold;
-            color: #555;
-        }
-        .editor-actions button {
-            margin-left: 10px;
-            padding: 5px 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .editor-actions button:hover {
-            background-color: #0056b3;
-        }
-        .editor-actions button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        textarea {
-            flex: 1;
-            width: 100%;
-            padding: 15px;
-            border: none;
-            resize: none;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        .status-bar {
-            padding: 10px 15px;
-            background-color: #f0f0f0;
-            border-top: 1px solid #ddd;
-            font-size: 12px;
-            color: #666;
-        }
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            border-radius: 4px;
-            color: white;
-            z-index: 1000;
-        }
-        .notification.success {
-            background-color: #28a745;
-        }
-        .notification.error {
-            background-color: #dc3545;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>文件编辑器</h1>
-        </div>
-        <div class="editor-container">
-            <div class="sidebar">
-                <ul class="file-list" id="fileList"></ul>
-            </div>
-            <div class="editor-area">
-                <div class="editor-header">
-                    <div class="file-path" id="filePath">请选择一个文件</div>
-                    <div class="editor-actions">
-                        <button id="saveBtn" disabled>保存</button>
-                        <button id="refreshBtn">刷新</button>
-                    </div>
-                </div>
-                <textarea id="fileContent" placeholder="选择一个文件开始编辑..."></textarea>
-                <div class="status-bar" id="statusBar">
-                    就绪
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="notification" class="notification" style="display: none;"></div>
-
-    <script>
-        let currentFile = null;
-        let unsavedChanges = false;
-
-        // 显示通知
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.style.display = 'block';
-            
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
-        }
-
-        // 加载文件列表
-        async function loadFileList(path = '') {
-            try {
-                const response = await fetch(`/api/filelist?path=${encodeURIComponent(path)}`);
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || '加载文件列表失败');
-                }
-                
-                const fileList = document.getElementById('fileList');
-                fileList.innerHTML = '';
-                
-                // 添加上级目录选项
-                if (path) {
-                    const parentItem = document.createElement('li');
-                    parentItem.textContent = '.. (上级目录)';
-                    parentItem.classList.add('dir');
-                    parentItem.onclick = () => loadFileList(data.parent_path);
-                    fileList.appendChild(parentItem);
-                }
-                
-                // 添加文件和目录项
-                data.items.forEach(item => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = item.name;
-                    listItem.classList.add(item.type);
-                    
-                    if (item.type === 'dir') {
-                        listItem.onclick = () => loadFileList(item.path);
-                    } else {
-                        listItem.onclick = () => loadFile(item.path);
-                    }
-                    
-                    fileList.appendChild(listItem);
-                });
-            } catch (error) {
-                console.error('加载文件列表失败:', error);
-                showNotification(`加载文件列表失败: ${error.message}`, 'error');
-            }
-        }
-
-        // 加载文件内容
-        async function loadFile(filePath) {
-            try {
-                // 清除之前的文件内容
-                document.getElementById('fileContent').value = '';
-                document.getElementById('filePath').textContent = filePath;
-                
-                // 读取文件内容
-                const response = await fetch(`/read-file/${encodeURIComponent(filePath)}`);
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || '读取文件失败');
-                }
-                
-                document.getElementById('fileContent').value = data.content;
-                currentFile = filePath;
-                unsavedChanges = false;
-                document.getElementById('saveBtn').disabled = false;
-                document.getElementById('statusBar').textContent = `已加载: ${filePath}`;
-                
-                // 高亮选中的文件
-                document.querySelectorAll('.file-list li').forEach(li => {
-                    li.classList.remove('selected');
-                });
-                event.target.classList.add('selected');
-            } catch (error) {
-                console.error('加载文件失败:', error);
-                showNotification(`加载文件失败: ${error.message}`, 'error');
-                document.getElementById('saveBtn').disabled = true;
-            }
-        }
-
-        // 保存文件
-        async function saveFile() {
-            if (!currentFile) {
-                showNotification('没有打开的文件', 'error');
-                return;
-            }
-            
-            try {
-                const content = document.getElementById('fileContent').value;
-                
-                const response = await fetch('/save-file', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        path: currentFile,
-                        content: content
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || '保存文件失败');
-                }
-                
-                unsavedChanges = false;
-                document.getElementById('statusBar').textContent = `已保存: ${currentFile}`;
-                showNotification('文件保存成功');
-            } catch (error) {
-                console.error('保存文件失败:', error);
-                showNotification(`保存文件失败: ${error.message}`, 'error');
-            }
-        }
-
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            loadFileList();
-            
-            document.getElementById('saveBtn').addEventListener('click', saveFile);
-            document.getElementById('refreshBtn').addEventListener('click', () => {
-                if (currentFile) {
-                    loadFile(currentFile);
-                } else {
-                    loadFileList();
-                }
-            });
-            
-            // 监听内容变化
-            document.getElementById('fileContent').addEventListener('input', () => {
-                if (currentFile && !unsavedChanges) {
-                    unsavedChanges = true;
-                    document.getElementById('statusBar').textContent = '有未保存的更改';
-                }
-            });
-            
-            // 页面卸载前检查是否有未保存的更改
-            window.addEventListener('beforeunload', (e) => {
-                if (unsavedChanges) {
-                    e.preventDefault();
-                    e.returnValue = '您有未保存的更改，确定要离开吗？';
-                }
-            });
-        });
-    </script>
-</body>
-</html>
-'''
-    return Response(html_content, mimetype='text/html')
 
 @app.route('/read-file/<path:file_path>', methods=['GET'])
 @login_required
@@ -1343,13 +1021,32 @@ def init_database():
             print("ℹ️  数据库已存在用户，跳过初始化")
             print("="*50 + "\n")
 
-# ==================== 路由 ====================
+# ==================== 修改后的 serve_html 路由 ====================
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 @filesystem_required
 def serve_html(path=''):
     try:
         real_path = safe_path_join(HTML_ROOT_DIR, path)
+        
+        # 检查是否在访问 users 文件夹（需要登录）
+        # 判断路径是否以 'users' 开头或就是 'users'
+        is_users_path = False
+        if path:
+            # 标准化路径，移除开头的斜杠
+            normalized_path = path.lstrip('/')
+            # 检查第一级路径是否为 users
+            path_parts = normalized_path.split('/')
+            if path_parts and path_parts[0] == 'users':
+                is_users_path = True
+        else:
+            # 根目录下检查是否有 users 文件夹需要登录才能访问
+            # 但根目录本身不需要登录，所以这里不处理
+            pass
+        
+        # 如果访问 users 相关路径且用户未登录，返回401
+        if is_users_path and 'user_id' not in session:
+            return jsonify({'error': '请先登录后访问 users 目录', 'require_login': True}), 401
         
         if not os.path.exists(real_path):
             return "路径不存在", 404
@@ -1461,6 +1158,7 @@ def serve_html(path=''):
         logger.error(f"Error serving path {path}: {str(e)}")
         return "服务器内部错误", 500
 
+# ==================== 其他路由 ====================
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
@@ -2415,6 +2113,7 @@ if __name__ == '__main__':
     print("- 请务必在生产环境中修改默认管理员密码")
     print("- 生产环境建议使用 HTTPS")
     print("- ⚠️  文件类型限制已禁用，可以上传任意类型文件")
+    print("- 🔐 users 文件夹需要登录后才能访问")
     if PROXY_ENABLED:
         print("- 🔐 代理功能需要登录后才能使用")
         print("- 🔌 WebSocket 代理通过 Socket.IO 实现")
