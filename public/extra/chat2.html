@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>小母猫陪伴AI · 智能喵语互联</title>
+    <title>小猫AI · 智能喵语伙伴</title>
     <!-- Font Awesome 6 (免费图标库) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- highlight.js 代码高亮 + marked markdown解析 -->
@@ -13,7 +13,7 @@
     <!-- Socket.IO 客户端库 -->
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
     <style>
-        /* ========== 合并母猫原有风格 + WebSocket增强样式 ========== */
+        /* ========== 融合小猫风格 + WebSocket增强样式 ========== */
         * {
             margin: 0;
             padding: 0;
@@ -27,10 +27,9 @@
             overflow: hidden;
         }
 
-        /* 整体背景及容器 - 融合左侧猫娘区域 + 右侧WebSocket风格面板 */
+        /* 整体背景及容器 - 可爱猫咪氛围 */
         body {
             background: #1a1a2f;
-            /* 设置背景图片为 /imgs/background.jpeg */
             background-image: url('/imgs/background.jpeg');
             background-size: cover;
             background-position: center center;
@@ -40,7 +39,7 @@
             color: #f0ede8;
         }
 
-        /* 主布局采用 flex，左侧为聊天区，右侧为猫咪头像和WS侧栏 */
+        /* 主布局 flex，左侧聊天区，右侧猫咪头像+WS侧栏 */
         .main-layout {
             display: flex;
             height: 100vh;
@@ -59,7 +58,7 @@
             min-width: 0;
         }
 
-        /* 角色模型区域 - 移到右侧面板内 */
+        /* 角色模型区域 - 右侧面板内 */
         #roleArea {
             width: 140px;
             height: 140px;
@@ -129,7 +128,7 @@
             white-space: pre-wrap;
         }
 
-        /* 系统/错误/任务消息样式 适配原WS风格 */
+        /* 系统/错误/任务消息样式 */
         .system-msg, .error-msg, .task-msg {
             padding: 6px 12px;
             border-radius: 20px;
@@ -163,7 +162,6 @@
             align-items: flex-end;
         }
 
-        /* 多行文本输入框容器 */
         .input-wrapper {
             flex: 1;
             background: rgba(20, 20, 35, 0.9);
@@ -197,7 +195,6 @@
             color: rgba(252, 232, 207, 0.6);
         }
 
-        /* 自定义滚动条 - 针对多行输入框 */
         #msgInput::-webkit-scrollbar {
             width: 4px;
         }
@@ -260,9 +257,10 @@
 
         .avatar-name {
             margin-top: 8px;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             color: #ffd4a3;
+            letter-spacing: 1px;
         }
 
         /* WebSocket连接区域 */
@@ -402,12 +400,10 @@
             background: rgba(80,100,70,0.9);
         }
 
-        /* 发送按钮内图标间距 */
         #sendBtn i {
             font-size: 16px;
         }
         
-        /* 针对移动端的优化 */
         @media (max-width: 768px) {
             .right-panel {
                 width: 280px;
@@ -421,7 +417,6 @@
             }
         }
         
-        /* 连接状态提示条 */
         .proxy-info {
             background: rgba(0,0,0,0.6);
             padding: 4px 8px;
@@ -436,9 +431,8 @@
 <div class="main-layout">
     <!-- 左侧聊天区域 -->
     <div class="cat-chat-area">
-        <!-- 聊天记录容器 -->
         <div class="chat-box" id="chatBox">
-            <div class="ai">🐱 主人好呀~ 我是小母猫AI，已整合WebSocket智能引擎！点击右侧「连接服务器」开启AI对话~ ✨<br>📝 提示：输入框支持多行文本，按 Enter 发送，Shift+Enter 换行<br>🔌 连接将通过 Socket.IO 代理服务转发</div>
+            <div class="ai">🐱 主人好呀~ 我是小猫AI，已整合智能引擎！点击右侧「连接服务器」开启AI对话 ✨<br>📝 提示：输入框支持多行文本，按 Enter 发送，Shift+Enter 换行<br>🔌 连接将通过 Socket.IO 代理服务转发</div>
         </div>
         <div class="input-area">
             <div class="input-wrapper">
@@ -448,14 +442,14 @@
         </div>
     </div>
 
-    <!-- 右侧面板: 猫咪头像 + WS控制台 + 背景/护眼功能 -->
+    <!-- 右侧面板: 小猫头像 + WS控制台 + 背景/护眼功能 -->
     <div class="right-panel">
-        <!-- 猫咪头像区域 -->
+        <!-- 小猫头像区域 -->
         <div class="avatar-container">
             <div id="roleArea">
-                <img id="roleImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='80' fill='%23f9cfb0'/%3E%3Ccircle cx='70' cy='80' r='8' fill='%233b2b1f'/%3E%3Ccircle cx='130' cy='80' r='8' fill='%233b2b1f'/%3E%3Cpath d='M80 120 Q100 140 120 120' stroke='%23945c3a' fill='none' stroke-width='4'/%3E%3Cpolygon points='100,150 92,175 108,175' fill='%23ffaaa5'/%3E%3C/svg%3E" alt="猫娘">
+                <img id="roleImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='80' fill='%23f9cfb0'/%3E%3Ccircle cx='70' cy='80' r='8' fill='%233b2b1f'/%3E%3Ccircle cx='130' cy='80' r='8' fill='%233b2b1f'/%3E%3Cpath d='M80 120 Q100 140 120 120' stroke='%23945c3a' fill='none' stroke-width='4'/%3E%3Cpolygon points='100,150 92,175 108,175' fill='%23ffaaa5'/%3E%3C/svg%3E" alt="小猫AI">
             </div>
-            <div class="avatar-name">🐱 小母猫 AI</div>
+            <div class="avatar-name">🐱 小猫 AI</div>
         </div>
 
         <!-- 背景与显示设置 -->
@@ -668,7 +662,6 @@
                 return;
             }
             
-            // 验证目标地址是否以 ws:// 或 wss:// 开头
             if (!targetWsUrl.startsWith('ws://') && !targetWsUrl.startsWith('wss://')) {
                 addSystemMessage("WebSocket地址必须以 ws:// 或 wss:// 开头", true);
                 return;
@@ -676,7 +669,6 @@
             
             manualDisconnect = false;
             
-            // 创建 Socket.IO 连接
             socket = io({
                 transports: ['websocket', 'polling'],
                 withCredentials: true
@@ -689,8 +681,6 @@
                 connectStartTime = new Date();
                 document.getElementById('connectTime').innerText = connectStartTime.toLocaleTimeString();
                 addSystemMessage(`✅ Socket.IO 连接成功！正在连接目标 WebSocket: ${targetWsUrl}`);
-                
-                // 连接成功后，发送 WebSocket 代理连接请求
                 socket.emit('ws_connect', { target_url: targetWsUrl });
             });
             
@@ -705,11 +695,9 @@
             
             socket.on('ws_message', (data) => {
                 try {
-                    // 尝试解析 JSON 消息
                     const messageData = JSON.parse(data.data);
                     handleWSMessage(messageData);
                 } catch(err) {
-                    // 如果不是 JSON，当作普通文本流式处理
                     handleStreamChunk(data.data, 'chat');
                 }
             });
@@ -778,18 +766,15 @@
             }
         }
         
-        // 发送聊天消息 (支持多行文本)
         function onSendMessage() {
             let text = msgInput.value.trim();
             if(!text) return;
             
-            // 显示用户消息 (保留换行格式)
             const userDiv = document.createElement('div');
             userDiv.className = 'user';
             userDiv.innerText = text;
             chatBox.appendChild(userDiv);
             
-            // 清空输入框并重置高度
             msgInput.value = '';
             autoResizeTextarea();
             msgInput.focus();
@@ -799,19 +784,17 @@
                 if(text.startsWith('/')) sendWSMessage(text, true);
                 else sendWSMessage(text, false);
             } else {
-                // 降级本地回复
                 setTimeout(() => {
                     let reply = "喵~ 请先连接WebSocket服务器获取智能回复～ ✨\n💡 提示：多行文本也支持哦！\n🔌 连接将通过 Socket.IO 代理服务转发";
                     const aiDiv = document.createElement('div');
                     aiDiv.className = 'ai';
-                    aiDiv.innerText = `🐱 AI：${reply}`;
+                    aiDiv.innerText = `🐱 小猫AI：${reply}`;
                     chatBox.appendChild(aiDiv);
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }, 200);
             }
         }
         
-        // 多行输入框自动调整高度
         function autoResizeTextarea() {
             if (!msgInput) return;
             msgInput.style.height = 'auto';
@@ -819,11 +802,9 @@
             msgInput.style.height = newHeight + 'px';
         }
         
-        // 初始化并监听输入事件
         msgInput.addEventListener('input', autoResizeTextarea);
         autoResizeTextarea();
         
-        // ---------- 背景和护眼功能 ----------
         changeBgBtn.onclick = () => bgFile.click();
         bgFile.onchange = (e) => {
             let f = e.target.files[0];
@@ -862,7 +843,6 @@
             }
         };
         
-        // WS 按钮事件
         document.getElementById('wsConnectBtn').onclick = connectWebSocket;
         document.getElementById('wsDisconnectBtn').onclick = disconnectWebSocket;
         document.querySelectorAll('.cmd-btn').forEach(btn => {
@@ -874,10 +854,8 @@
             };
         });
         
-        // 发送事件绑定
         sendBtn.onclick = onSendMessage;
         
-        // 多行输入快捷键: Enter发送, Shift+Enter换行
         msgInput.addEventListener('keydown', (e) => {
             if(e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -885,13 +863,11 @@
             }
         });
         
-        // 确保初始化背景为 /imgs/background.jpeg
         document.body.style.backgroundImage = "url('/imgs/background.jpeg')";
         document.body.style.backgroundSize = "cover";
         document.body.style.backgroundPosition = "center center";
         document.body.style.backgroundRepeat = "no-repeat";
         
-        // 初始聚焦输入框
         msgInput.focus();
     })();
 </script>

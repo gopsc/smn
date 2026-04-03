@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>进程托管服务 | 进程管理控制台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            background: #f1f5f9;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 认证遮罩层 - 简洁鉴权过渡页（依赖外部登陆，仅做状态检查） */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: opacity 0.2s;
+        }
+
+        .auth-card {
+            background: white;
+            border-radius: 24px;
+            padding: 32px 28px;
+            width: 360px;
+            text-align: center;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+        }
+
+        .auth-card .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .auth-card h3 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .auth-card p {
+            color: #475569;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .auth-status {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 12px;
+            color: #1e293b;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 主界面布局 - 简洁现代 */
+        .app-container {
+            display: none;
+            height: 100vh;
+            width: 100%;
+            background: #f8fafc;
+        }
+
+        .top-bar {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 28px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            color: #0f172a;
+        }
+
+        .logo-area span {
+            background: #3b82f6;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-badge {
+            background: #f1f5f9;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .logout-icon {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 40px;
+            transition: background 0.2s;
+            color: #64748b;
+        }
+
+        .logout-icon:hover {
+            background: #f1f5f9;
+            color: #ef4444;
+        }
+
+        /* 主要内容区 */
+        .main-content {
+            padding: 24px 32px;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+        }
+
+        /* 目标选择栏 */
+        .target-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 12px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+        }
+
+        .target-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .target-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex: 1;
+        }
+
+        .target-input-group input {
+            border: 1px solid #cbd5e1;
+            border-radius: 40px;
+            padding: 8px 16px;
+            width: 180px;
+            font-size: 13px;
+            font-family: monospace;
+            background: #fefefe;
+            transition: 0.2s;
+        }
+
+        .target-input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+        }
+
+        .btn-sm {
+            background: #f1f5f9;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #1e293b;
+        }
+
+        .btn-sm-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-sm-primary:hover {
+            background: #2563eb;
+        }
+
+        .current-target-badge {
+            background: #e6f0ff;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-family: monospace;
+            color: #1e40af;
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: white;
+            border-radius: 24px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+
+        .card-header {
+            padding: 18px 24px;
+            background: #ffffff;
+            border-bottom: 1px solid #f0f2f5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .exec-area {
+            padding: 20px 24px;
+        }
+
+        .command-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .command-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            background: #fefefe;
+        }
+
+        .command-row input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        }
+
+        .btn-exec {
+            background: #0f172a;
+            color: white;
+            border: none;
+            padding: 0 28px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-exec:hover {
+            background: #1e293b;
+        }
+
+        .output-box {
+            background: #0f172a;
+            border-radius: 20px;
+            padding: 18px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 320px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+
+        /* 进程表格 */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        .proc-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .proc-table th {
+            text-align: left;
+            padding: 16px 20px;
+            background: #fafcff;
+            font-weight: 600;
+            font-size: 13px;
+            color: #475569;
+            border-bottom: 1px solid #eef2f6;
+        }
+
+        .proc-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid #f0f2f5;
+            font-size: 14px;
+            font-family: monospace;
+            color: #1e293b;
+        }
+
+        .pid-badge {
+            background: #eef2ff;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: monospace;
+        }
+
+        .kill-button {
+            background: #fee2e2;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 30px;
+            color: #b91c1c;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .kill-button:hover {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+        .refresh-icon {
+            background: #f1f5f9;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px;
+            color: #64748b;
+        }
+
+        .toast-message {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 40px;
+            font-size: 13px;
+            z-index: 1200;
+            animation: fadeInUp 0.2s ease;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+
+        .toast-message.success { background: #10b981; }
+        .toast-message.error { background: #ef4444; }
+        .toast-message.info { background: #3b82f6; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 鉴权过渡层 (依赖外部登陆，仅校验 session / 代理认证) -->
+<div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+        <div class="icon">⚙️</div>
+        <h3>进程托管服务</h3>
+        <p>需要身份验证</p>
+        <div class="auth-status" id="authStatusMsg">
+            <span class="spinner"></span> 正在验证访问凭证...
+        </div>
+    </div>
+</div>
+
+<!-- 主应用界面 -->
+<div id="appContainer" class="app-container">
+    <div class="top-bar">
+        <div class="logo-area">
+            <span>🔄</span>
+            <span>PMC 控制台</span>
+        </div>
+        <div class="user-area">
+            <div class="user-badge" id="userNameDisplay">加载中...</div>
+            <button class="logout-icon" id="logoutBtn" title="退出登录">🚪</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <!-- 嵌套托管目标栏 -->
+        <div class="target-panel">
+            <span class="target-label">🎯 托管目标</span>
+            <div class="target-input-group">
+                <input type="text" id="targetPidInput" placeholder="目标 PID (留空=当前进程)" autocomplete="off">
+                <button class="btn-sm btn-sm-primary" id="applyTargetBtn">应用</button>
+                <button class="btn-sm" id="clearTargetBtn">清除</button>
+            </div>
+            <div class="current-target-badge" id="targetDisplayBadge">当前: 主进程 (self)</div>
+        </div>
+
+        <!-- 进程列表卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📋 托管进程列表</h2>
+                <button class="refresh-icon" id="refreshListBtn">🔄 刷新</button>
+            </div>
+            <div class="table-wrapper" id="processTableContainer">
+                <div class="empty-state">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 执行命令卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <h2>💻 执行任意命令</h2>
+            </div>
+            <div class="exec-area">
+                <div class="command-row">
+                    <input type="text" id="commandInput" placeholder="输入命令, 例如: ls -la, ps aux, /usr/bin/pmc" autocomplete="off">
+                    <button class="btn-exec" id="execBtn">执行</button>
+                </div>
+                <div style="font-size:12px; color:#475569; margin-bottom: 8px;">📄 输出结果</div>
+                <div id="commandOutput" class="output-box">等待命令执行...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 核心配置 ----------
+    // 通过文件浏览器代理访问本地进程托管服务 (端口5200)
+    const PROXY_BASE = "/proxy/http://localhost:5200";
+
+    // 全局状态
+    let currentUser = { username: "operator" };   // 从代理认证头中获取
+    let currentTargetPid = "";                    // 空代表当前进程
+    let isAuthenticated = false;
+
+    // 辅助: 构建带 target 参数的 URL
+    function buildUrl(endpoint, extraParams = {}) {
+        let url = `${PROXY_BASE}${endpoint}`;
+        const params = new URLSearchParams();
+        if (currentTargetPid && currentTargetPid.trim() !== "") {
+            params.append("target", currentTargetPid.trim());
+        }
+        for (const [k, v] of Object.entries(extraParams)) {
+            if (v !== undefined && v !== null && v !== "") {
+                params.append(k, v);
+            }
+        }
+        const query = params.toString();
+        if (query) url += "?" + query;
+        return url;
+    }
+
+    // 通用请求 (带鉴权头，依赖文件浏览器的代理附加用户头)
+    async function apiCall(endpoint, method = "POST", extraParams = {}) {
+        const url = buildUrl(endpoint, extraParams);
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    "Content-Type": "application/json",
+                    // 与外部堡垒机风格一致：X-Proxy-User 携带当前登陆用户名 (代理依赖)
+                    "X-Proxy-User": currentUser?.username || "pmc-user"
+                },
+                credentials: "include"   // 携带 cookie 保持代理会话
+            });
+            if (!response.ok) {
+                let errorText = `HTTP ${response.status}`;
+                try {
+                    const errJson = await response.json();
+                    errorText = errJson.message || errorText;
+                } catch(e) {}
+                throw new Error(errorText);
+            }
+            const data = await response.json();
+            // 统一处理 success 字段 (服务端返回 "true" 字符串或 true)
+            if (data.success !== "true" && data.success !== true) {
+                throw new Error(data.message || "请求失败");
+            }
+            return data;
+        } catch (err) {
+            console.error(`API ${endpoint} 错误:`, err);
+            throw err;
+        }
+    }
+
+    // 显示通知
+    function showMessage(msg, type = "info") {
+        const toast = document.createElement("div");
+        toast.className = `toast-message ${type}`;
+        toast.innerText = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // 获取进程列表并渲染
+    async function fetchProcessList() {
+        const container = document.getElementById("processTableContainer");
+        if (!container) return;
+        container.innerHTML = '<div class="empty-state"><span class="spinner"></span> 加载进程列表中...</div>';
+        try {
+            const result = await apiCall("/list", "POST");
+            let processes = result.data || [];
+            if (!Array.isArray(processes)) processes = [];
+            renderProcessTable(processes);
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = `<div class="empty-state">❌ 加载失败: ${escapeHtml(err.message)}<br><button class="refresh-icon" style="margin-top:12px;" onclick="fetchProcessList()">重试</button></div>`;
+            showMessage(`列表加载失败: ${err.message}`, "error");
+        }
+    }
+
+    function renderProcessTable(processes) {
+        const container = document.getElementById("processTableContainer");
+        if (!container) return;
+        if (!processes.length) {
+            container.innerHTML = `<div class="empty-state">📭 当前没有托管进程<br><span style="font-size:12px;">可通过执行命令启动新的进程托管实例</span></div>`;
+            return;
+        }
+        const tableHtml = `
+            <table class="proc-table">
+                <thead>
+                    <tr><th>索引</th><th>PID</th><th>状态 / 命令</th><th style="width:100px">操作</th></tr>
+                </thead>
+                <tbody>
+                    ${processes.map(proc => `
+                        <tr>
+                            <td>${escapeHtml(proc.index || '-')}</td>
+                            <td><span class="pid-badge">${escapeHtml(proc.pid)}</span></td>
+                            <td style="font-family:monospace;">${escapeHtml(proc.status || proc.command || '-')}</td>
+                            <td><button class="kill-button" data-pid="${escapeHtml(proc.pid)}">终止</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        container.innerHTML = tableHtml;
+        // 绑定 kill 事件
+        document.querySelectorAll('.kill-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const pid = btn.getAttribute('data-pid');
+                if (pid) killProcess(pid);
+            });
+        });
+    }
+
+    // 终止进程
+    async function killProcess(pid) {
+        if (!pid) return;
+        try {
+            const result = await apiCall("/kill", "POST", { pid: pid });
+            if (result.success === "true" || result.success === true) {
+                showMessage(`✅ 进程 ${pid} 已终止`, "success");
+                await fetchProcessList();
+                // 如果终止的进程正好是当前目标，提示并清除目标
+                if (currentTargetPid === pid) {
+                    showMessage(`当前目标 PID ${pid} 已终止，已自动清除目标`, "info");
+                    clearTarget();
+                }
+            } else {
+                throw new Error(result.message || "终止失败");
+            }
+        } catch (err) {
+            showMessage(`终止失败: ${err.message}`, "error");
+        }
+    }
+
+    // 执行命令
+    async function executeCommand() {
+        const command = document.getElementById("commandInput").value.trim();
+        if (!command) {
+            showMessage("请输入要执行的命令", "error");
+            return;
+        }
+        const outputDiv = document.getElementById("commandOutput");
+        outputDiv.innerHTML = "<span style='color:#60a5fa'>⏳ 执行中...</span>";
+        try {
+            const result = await apiCall("/exec", "POST", { command: command });
+            let outputText = "";
+            if (result.data && result.data.output !== undefined) {
+                outputText = result.data.output;
+            } else if (result.output) {
+                outputText = result.output;
+            } else {
+                outputText = JSON.stringify(result.data, null, 2);
+            }
+            outputDiv.innerHTML = `<span style="color:#10b981;">✅ 执行成功</span>\n<span style="font-family:monospace;">${escapeHtml(outputText)}</span>`;
+            showMessage(`命令执行成功`, "success");
+            // 如果执行的命令可能是启动新进程托管 (pmc)，自动刷新列表
+            if (command.includes("pmc") || command.toLowerCase().includes("进程托管")) {
+                setTimeout(() => fetchProcessList(), 800);
+            }
+        } catch (err) {
+            outputDiv.innerHTML = `<span style="color:#ef4444;">❌ 错误: ${escapeHtml(err.message)}</span>`;
+            showMessage(`执行失败: ${err.message}`, "error");
+        }
+    }
+
+    // 目标管理
+    function applyTarget() {
+        const inputVal = document.getElementById("targetPidInput").value.trim();
+        if (inputVal === "") {
+            currentTargetPid = "";
+            document.getElementById("targetDisplayBadge").innerHTML = "当前: 主进程 (self)";
+            showMessage("目标已切换至当前进程托管服务", "info");
+        } else if (/^\d+$/.test(inputVal)) {
+            currentTargetPid = inputVal;
+            document.getElementById("targetDisplayBadge").innerHTML = `目标 PID: ${currentTargetPid} (嵌套托管)`;
+            showMessage(`目标已切换至 PID ${currentTargetPid}`, "info");
+        } else {
+            showMessage("请输入有效的数字PID，或留空代表当前进程", "error");
+            return;
+        }
+        // 刷新列表以反映新目标下的进程
+        fetchProcessList();
+        // 清空命令输出区域避免歧义
+        const outputDiv = document.getElementById("commandOutput");
+        if (outputDiv) outputDiv.innerHTML = "目标已变更，可重新执行命令";
+    }
+
+    function clearTarget() {
+        currentTargetPid = "";
+        document.getElementById("targetPidInput").value = "";
+        document.getElementById("targetDisplayBadge").innerHTML = "当前: 主进程 (self)";
+        showMessage("目标已清除，指向当前进程托管服务", "info");
+        fetchProcessList();
+        const outputDiv = document.getElementById("commandOutput");
+        if (outputDiv) outputDiv.innerHTML = "目标已重置，命令将作用于主进程";
+    }
+
+    // 退出登录: 清除前端状态，刷新页面，让代理重新鉴权 (或跳转到外部登陆页)
+    function logout() {
+        // 调用代理登出接口(外部认证页面会处理)，但为了遵循现有架构，直接通知用户并刷新
+        // 由于登陆是在另一个页面进行的，这里仅清除本地用户标识并重新加载页面
+        showMessage("正在退出...", "info");
+        // 可选: 发送登出请求到代理 (若有必要)
+        fetch("/logout", { method: "POST", credentials: "include" }).catch(()=>{});
+        localStorage.removeItem("pmc_auth_cache");
+        // 刷新页面重新进入鉴权流程
+        window.location.reload();
+    }
+
+    // 鉴权检测 (通过访问一个受保护的代理端点，验证是否已经登陆)
+    async function checkAuthentication() {
+        const authStatusDiv = document.getElementById("authStatusMsg");
+        try {
+            // 尝试调用 /list 接口，但只验证是否通过代理鉴权 (401/403 则未登陆)
+            // 使用一个轻量探测，不关心数据内容，只验证响应是否非401/403
+            const probeUrl = `${PROXY_BASE}/list`;
+            const resp = await fetch(probeUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include"
+            });
+            if (resp.status === 401 || resp.status === 403) {
+                throw new Error("未授权，请先登录");
+            }
+            // 尝试解析，如果服务端返回成功表示会话有效
+            const data = await resp.json();
+            // 只要能连通即可，顺便获取当前用户信息 (从响应头或自定义，这里简单取登录用户名)
+            // 外部堡垒机在代理层已经注入用户头，我们尝试从 X-Proxy-User 回显或预设
+            // 默认显示用户名从 localStorage 或 header
+            const storedUser = localStorage.getItem("pmc_username") || "operator";
+            currentUser = { username: storedUser };
+            document.getElementById("userNameDisplay").innerText = currentUser.username;
+            isAuthenticated = true;
+            // 隐藏遮罩，显示主界面
+            document.getElementById("authOverlay").style.display = "none";
+            document.getElementById("appContainer").style.display = "flex";
+            // 初始化数据
+            fetchProcessList();
+        } catch (err) {
+            console.warn("鉴权失败，等待外部登陆:", err);
+            if (authStatusDiv) {
+                authStatusDiv.innerHTML = "⚠️ 未检测到有效会话<br><span style='font-size:12px;'>请通过堡垒机页面先登录</span><br><button id='retryAuthBtn' style='margin-top:12px; background:#3b82f6; border:none; padding:6px 16px; border-radius:30px; color:white; cursor:pointer;'>重新检测</button>";
+                const retryBtn = document.getElementById("retryAuthBtn");
+                if (retryBtn) retryBtn.onclick = () => window.location.reload();
+            }
+            isAuthenticated = false;
+        }
+    }
+
+    // 辅助: 保存用户名 (从外部登陆页可能传递)
+    function syncUserFromProxy() {
+        // 尝试从 cookie 或者 header 中获取用户名，代理可能会设置 X-Proxy-User，在前端不可直接读取 header，
+        // 但可以由后端提供一个简单接口 /auth/me，但由于无后端，我们从 localStorage 获取或者手动输入一次
+        // 为了体验，首次让用户简单设置一次 (或留空)
+        let stored = localStorage.getItem("pmc_username");
+        if (!stored) {
+            stored = "pmc_user";
+            localStorage.setItem("pmc_username", stored);
+        }
+        currentUser.username = stored;
+        if (document.getElementById("userNameDisplay")) {
+            document.getElementById("userNameDisplay").innerText = currentUser.username;
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // 事件绑定与初始化
+    function bindEvents() {
+        document.getElementById("applyTargetBtn").addEventListener("click", applyTarget);
+        document.getElementById("clearTargetBtn").addEventListener("click", clearTarget);
+        document.getElementById("refreshListBtn").addEventListener("click", () => fetchProcessList());
+        document.getElementById("execBtn").addEventListener("click", executeCommand);
+        document.getElementById("logoutBtn").addEventListener("click", logout);
+        const cmdInput = document.getElementById("commandInput");
+        if (cmdInput) {
+            cmdInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") executeCommand();
+            });
+        }
+        const targetInput = document.getElementById("targetPidInput");
+        if (targetInput) {
+            targetInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") applyTarget();
+            });
+        }
+    }
+
+    // 启动应用
+    window.onload = () => {
+        syncUserFromProxy();
+        bindEvents();
+        // 鉴权检测，依赖文件浏览器的代理认证
+        checkAuthentication();
+    };
+</script>
+</body>
+</html>

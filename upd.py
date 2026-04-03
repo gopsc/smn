@@ -137,7 +137,7 @@ file_config = {
     },
     'proxy': {
         'enabled': 'true',
-        'allowed_targets': 'http://localhost:8000,http://localhost:8080,http://localhost:3000,ws://localhost:8765'
+        'allowed_targets': 'http://localhost:5001,ws://localhost:5002,http://localhost:5200,http://localhost:8000,ws://localhost:8765' 
     }
 }
 
