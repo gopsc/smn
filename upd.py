@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory, jsonify, request, Response, session, send_file
+from flask import Flask, render_template, send_from_directory, jsonify, request, Response, session, send_file, stream_with_context
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
@@ -619,7 +619,8 @@ def proxy_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# ==================== HTTP 代理视图 ====================
+
+# ==================== HTTP 代理视图（增强流式支持） ====================
 @app.route('/proxy/<path:target>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
 @login_required
 @proxy_required
@@ -632,10 +633,8 @@ def proxy_request(target):
         upgrade = request.headers.get('Upgrade', '').lower()
         connection = request.headers.get('Connection', '').lower()
         
-        # 如果是 WebSocket 升级请求，返回 426 让客户端通过 Socket.IO 连接
         if upgrade == 'websocket' and 'upgrade' in connection:
             logger.info(f"WebSocket upgrade request detected, redirecting to Socket.IO")
-            # 返回 426 Upgrade Required，并在响应头中指示使用 Socket.IO
             response = Response('WebSocket connections must use Socket.IO', status=426)
             response.headers['Upgrade'] = 'websocket'
             response.headers['Connection'] = 'Upgrade'
@@ -648,7 +647,7 @@ def proxy_request(target):
             response = Response()
             response.headers['Access-Control-Allow-Origin'] = '*'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Proxy-User, X-User-ID'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Proxy-User, X-User-ID, Accept'
             return response
         
         headers = {}
@@ -682,38 +681,94 @@ def proxy_request(target):
         if not is_allowed:
             return jsonify({'error': '不允许代理到此目标地址', 'allowed_targets': PROXY_ALLOWED_TARGETS}), 403
         
-        logger.info(f"User {session.get('username')} proxy {method} request to {target_url}")
+        # 检查是否是流式请求
+        is_stream_request = False
+        accept_header = request.headers.get('Accept', '')
+        is_sse_request = 'text/event-stream' in accept_header or 'application/x-ndjson' in accept_header
+        
+        # 检查请求体中的 stream 参数
+        if method in ['POST', 'PUT', 'PATCH'] and data:
+            try:
+                if isinstance(data, bytes):
+                    body_json = json.loads(data.decode('utf-8'))
+                else:
+                    body_json = request.get_json(silent=True)
+                if body_json and body_json.get('stream') == True:
+                    is_stream_request = True
+                    logger.info(f"Detected stream=true in request body for {target_url}")
+            except:
+                pass
+        
+        logger.info(f"User {session.get('username')} proxy {method} request to {target_url}, stream={is_stream_request or is_sse_request}")
         
         try:
-            # 对于流式响应，使用流式处理
-            if method in ['GET', 'POST'] and request.headers.get('Accept', '').find('text-event-stream') >= 0:
-                # 流式响应
-                response = requests.request(
+            # 如果是流式请求，使用流式处理
+            if is_stream_request or is_sse_request:
+                # 创建流式请求
+                req = requests.Request(
                     method=method,
                     url=target_url,
                     headers=headers,
                     params=query_params,
-                    data=data,
-                    timeout=30,
-                    allow_redirects=True,
-                    verify=False,
-                    stream=True
+                    data=data if isinstance(data, bytes) else (data.encode('utf-8') if data else None)
+                )
+                prepared = req.prepare()
+                
+                # 使用 Session 发送流式请求
+                session_req = requests.Session()
+                response = session_req.send(
+                    prepared,
+                    stream=True,
+                    timeout=60,
+                    verify=False
                 )
                 
                 def generate():
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            yield chunk
+                    try:
+                        # 逐块读取并立即发送，使用较小的块大小以获得更好的实时性
+                        for chunk in response.iter_content(chunk_size=256, decode_unicode=False):
+                            if chunk:
+                                yield chunk
+                                # 强制刷新缓冲区
+                                if hasattr(chunk, 'flush'):
+                                    chunk.flush()
+                    except GeneratorExit:
+                        logger.info(f"Stream client disconnected for {target_url}")
+                    except Exception as e:
+                        logger.error(f"Stream generation error: {e}")
+                    finally:
+                        response.close()
+                        session_req.close()
                 
-                response_headers = {}
-                excluded_response_headers = ['content-encoding', 'transfer-encoding', 'connection']
+                # 构建响应头
+                response_headers = {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Accel-Buffering': 'no',  # 禁用 nginx 缓冲
+                    'X-Content-Type-Options': 'nosniff'
+                }
+                
+                # 复制重要的响应头
                 for key, value in response.headers.items():
-                    if key.lower() not in excluded_response_headers:
+                    key_lower = key.lower()
+                    if key_lower in ['content-type', 'cache-control']:
+                        continue
+                    if key_lower not in ['content-encoding', 'transfer-encoding', 'connection', 'content-length']:
                         response_headers[key] = value
                 
-                return Response(stream_with_context(generate()), 
-                              status=response.status_code, 
-                              headers=response_headers)
+                # 设置正确的 Content-Type
+                if is_sse_request:
+                    response_headers['Content-Type'] = 'text/event-stream'
+                elif response.headers.get('Content-Type'):
+                    response_headers['Content-Type'] = response.headers['Content-Type']
+                
+                return Response(
+                    stream_with_context(generate()),
+                    status=response.status_code,
+                    headers=response_headers,
+                    direct_passthrough=True
+                )
             else:
                 # 普通响应
                 response = requests.request(
@@ -745,7 +800,7 @@ def proxy_request(target):
     except Exception as e:
         logger.error(f"Proxy error: {str(e)}")
         return jsonify({'error': f'代理处理失败: {str(e)}'}), 500
-        
+
 # ==================== 代理状态接口 ====================
 @app.route('/api/proxy/status', methods=['GET'])
 @login_required
@@ -754,7 +809,8 @@ def get_proxy_status():
         'enabled': PROXY_ENABLED,
         'allowed_targets': PROXY_ALLOWED_TARGETS,
         'user': session.get('username', 'unknown'),
-        'websocket_supported': True
+        'websocket_supported': True,
+        'stream_supported': True
     })
 
 @app.route('/api/proxy/test', methods=['POST'])
