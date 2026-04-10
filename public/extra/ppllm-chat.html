@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能聊天助手 - 支持工具调用和思维链</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.3em;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+
+        .proxy-status {
+            background: rgba(255,255,255,0.2);
+            padding: 8px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .model-selector {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .model-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .model-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .model-selector select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .settings {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .setting-item {
+            margin-bottom: 15px;
+        }
+
+        .setting-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .setting-item input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f5f5f5;
+        }
+
+        .setting-item input:disabled {
+            cursor: not-allowed;
+        }
+
+        .thinking-toggle {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            width: 50px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .tools-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .tools-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .tool-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 2px solid transparent;
+        }
+
+        .tool-name {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .tool-desc {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .tool-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #48bb78;
+            color: white;
+            border-radius: 5px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        .chat-area {
+            flex: 1;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5em;
+            color: #333;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #667eea;
+        }
+
+        .message.assistant .message-avatar {
+            background: #48bb78;
+        }
+
+        .message.tool .message-avatar {
+            background: #ed8936;
+        }
+
+        .message.thinking .message-avatar {
+            background: #9b59b6;
+        }
+
+        .message-content {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+
+        .message.tool .message-content {
+            background: #fff5f0;
+            border-left: 3px solid #ed8936;
+        }
+
+        .message.thinking .message-content {
+            background: #f3e8ff;
+            border-left: 3px solid #9b59b6;
+            font-style: italic;
+        }
+
+        .tool-call {
+            background: #e8f5e9;
+            border-left: 3px solid #48bb78;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .tool-call-header {
+            font-weight: 600;
+            color: #2e7d32;
+            margin-bottom: 5px;
+        }
+
+        .tool-call-content {
+            font-family: monospace;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f56565;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            max-height: 150px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            background: #c0c0c0;
+            cursor: not-allowed;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .action-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .thinking-badge {
+            display: inline-block;
+            background: #9b59b6;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .streaming-active {
+            border: 2px solid #667eea;
+            animation: pulse-border 1s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% { border-color: #667eea; }
+            50% { border-color: #764ba2; }
+            100% { border-color: #667eea; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🤖 智能助手</h2>
+                <p>支持工具调用和思维链</p>
+                <div class="proxy-status" id="proxyStatus">
+                    🔗 代理连接中...
+                </div>
+            </div>
+            
+            <div class="model-selector">
+                <label>选择模型</label>
+                <select id="modelSelect" disabled>
+                    <option value="">正在加载模型...</option>
+                </select>
+            </div>
+            
+            <div class="settings">
+                <div class="setting-item">
+                    <label>🌡️ 温度 (固定为1)</label>
+                    <input type="range" min="0" max="1" step="0.1" value="1" disabled>
+                    <span>1</span>
+                </div>
+                <div class="setting-item">
+                    <label>📝 最大 token</label>
+                    <input type="number" id="maxTokens" value="4096" step="100">
+                </div>
+            </div>
+
+            <div class="thinking-toggle">
+                <label class="toggle-switch">
+                    <span>🧠 开启思维链 <span class="thinking-badge">实验性</span></span>
+                    <input type="checkbox" id="thinkingToggle">
+                </label>
+            </div>
+            
+            <div class="tools-panel">
+                <h3>🛠️ 可用工具</h3>
+                <div id="toolsList"></div>
+            </div>
+        </div>
+        
+        <div class="chat-area">
+            <div class="chat-header">
+                <h1>💬 对话</h1>
+                <div class="status">
+                    <div class="status-dot"></div>
+                    <span id="statusText">检查连接...</span>
+                </div>
+            </div>
+            
+            <div class="messages-container" id="messagesContainer">
+                <div class="message assistant">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        你好！我是智能助手，支持工具调用和思维链。<br>
+                        试试问我：<br>
+                        • 帮我计算 123 + 456<br>
+                        • 现在几点了？<br>
+                        • 计算 2的平方根<br><br>
+                        💡 提示：开启思维链可以看到模型的思考过程
+                        <div class="message-time">刚刚</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea id="messageInput" placeholder="输入消息... (Shift+Enter 换行，Enter 发送)" rows="3" disabled></textarea>
+                    <button class="send-btn" id="sendBtn" disabled>发送</button>
+                </div>
+                <div class="input-actions">
+                    <button class="action-btn" id="clearChatBtn">清空对话</button>
+                    <button class="action-btn" id="streamToggleBtn">🟢 流式模式</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 代理配置 - 通过文件浏览器的代理功能访问
+        const PROXY_BASE_URL = '/proxy';
+        const TARGET_API = 'http://localhost:5002';  // 目标API地址
+        
+        let currentModel = '';
+        let conversationHistory = [];
+        let isStreaming = true;  // 默认开启流式
+        let enableThinking = false;
+        let isAuthenticated = false;
+        
+        const tools = [
+            {
+                type: "function",
+                function: {
+                    name: "get_current_time",
+                    description: "获取当前日期和时间",
+                    parameters: {
+                        type: "object",
+                        properties: {},
+                        required: []
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "calculate",
+                    description: "执行数学计算",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            expression: {
+                                type: "string",
+                                description: "要计算的数学表达式"
+                            }
+                        },
+                        required: ["expression"]
+                    }
+                }
+            }
+        ];
+        
+        const modelSelect = document.getElementById('modelSelect');
+        const maxTokensInput = document.getElementById('maxTokens');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearChatBtn = document.getElementById('clearChatBtn');
+        const streamToggleBtn = document.getElementById('streamToggleBtn');
+        const statusText = document.getElementById('statusText');
+        const thinkingToggle = document.getElementById('thinkingToggle');
+        const toolsList = document.getElementById('toolsList');
+        const proxyStatus = document.getElementById('proxyStatus');
+
+        // 辅助函数
+        function getApiUrl(endpoint) {
+            return `${PROXY_BASE_URL}/${TARGET_API}/${endpoint}`;
+        }
+
+        function updateProxyStatus(status, isError = false) {
+            if (isError) {
+                proxyStatus.innerHTML = status;
+                proxyStatus.style.background = 'rgba(255,0,0,0.2)';
+            } else {
+                proxyStatus.innerHTML = status;
+                proxyStatus.style.background = 'rgba(255,255,255,0.2)';
+            }
+        }
+
+        function showError(message) {
+            const toast = document.createElement('div');
+            toast.className = 'error-toast';
+            toast.innerHTML = `<strong>❌ 错误</strong><br>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+        
+        // 检查认证状态
+        async function checkAuth() {
+            try {
+                console.log('检查认证状态...');
+                const response = await fetch('/api/check-auth', {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('认证状态:', data);
+                isAuthenticated = data.authenticated;
+                
+                if (!isAuthenticated) {
+                    updateProxyStatus('🔒 未登录，请先登录', true);
+                    statusText.textContent = '未登录';
+                    showError('请先登录文件浏览器后再使用聊天功能');
+                    messageInput.disabled = true;
+                    sendBtn.disabled = true;
+                    modelSelect.disabled = true;
+                    return false;
+                }
+                
+                updateProxyStatus('✅ 代理已连接');
+                statusText.textContent = '已连接';
+                messageInput.disabled = false;
+                return true;
+            } catch (error) {
+                console.error('认证检查失败:', error);
+                updateProxyStatus('⚠️ 无法连接到代理服务', true);
+                statusText.textContent = '连接失败';
+                showError('无法连接到文件浏览器代理服务，请确保服务已启动');
+                return false;
+            }
+        }
+        
+        async function executeTool(toolCall) {
+            const functionName = toolCall.function.name;
+            let arguments_ = {};
+            try {
+                arguments_ = JSON.parse(toolCall.function.arguments);
+            } catch (e) {
+                arguments_ = {};
+            }
+            
+            console.log(`执行工具: ${functionName}`, arguments_);
+            
+            switch (functionName) {
+                case 'get_current_time':
+                    const now = new Date();
+                    return {
+                        time: now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+                        date: now.toLocaleDateString('zh-CN'),
+                        weekday: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()],
+                        hour: now.getHours(),
+                        minute: now.getMinutes(),
+                        second: now.getSeconds()
+                    };
+                    
+                case 'calculate':
+                    try {
+                        const expression = arguments_.expression;
+                        let result;
+                        if (expression.includes('sqrt')) {
+                            const num = parseFloat(expression.match(/\d+(?:\.\d+)?/)[0]);
+                            result = Math.sqrt(num);
+                        } else if (expression.includes('^')) {
+                            const parts = expression.split('^');
+                            result = Math.pow(parseFloat(parts[0]), parseFloat(parts[1]));
+                        } else {
+                            result = Function('"use strict";return (' + expression + ')')();
+                        }
+                        return { expression, result };
+                    } catch (error) {
+                        return { error: `计算错误: ${error.message}` };
+                    }
+                    
+                default:
+                    return { error: `未知工具: ${functionName}` };
+            }
+        }
+        
+        function renderTools() {
+            toolsList.innerHTML = '';
+            tools.forEach(tool => {
+                const toolDiv = document.createElement('div');
+                toolDiv.className = 'tool-item';
+                toolDiv.innerHTML = `
+                    <div class="tool-name">🔧 ${tool.function.name}</div>
+                    <div class="tool-desc">${tool.function.description}</div>
+                    <div class="tool-badge">可用</div>
+                `;
+                toolsList.appendChild(toolDiv);
+            });
+        }
+        
+        async function loadModels() {
+            try {
+                console.log('开始加载模型...');
+                modelSelect.disabled = true;
+                modelSelect.innerHTML = '<option value="">⏳ 正在加载模型...</option>';
+                
+                const url = getApiUrl('v1/models');
+                console.log('请求模型列表:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('模型列表响应状态:', response.status);
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('未登录，请刷新页面重新登录');
+                    }
+                    const errorText = await response.text();
+                    console.error('错误响应:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('模型数据:', data);
+                
+                if (data.data && data.data.length > 0) {
+                    modelSelect.innerHTML = '';
+                    data.data.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = `${model.id} ${model.supports_tools ? '🛠️' : ''} ${model.supports_thinking ? '🧠' : ''}`;
+                        option.dataset.supportsTools = model.supports_tools;
+                        option.dataset.supportsThinking = model.supports_thinking;
+                        modelSelect.appendChild(option);
+                    });
+                    currentModel = data.data[0].id;
+                    modelSelect.value = currentModel;
+                    modelSelect.disabled = false;
+                    updateStatus('已连接', 'success');
+                    console.log('模型加载成功:', currentModel);
+                } else {
+                    modelSelect.innerHTML = '<option value="">暂无可用模型</option>';
+                    updateStatus('无可用模型', 'error');
+                }
+            } catch (error) {
+                console.error('加载模型失败:', error);
+                modelSelect.innerHTML = '<option value="">连接失败</option>';
+                updateStatus('连接失败', 'error');
+                showError(`无法连接到代理服务: ${error.message}`);
+            }
+        }
+        
+        function updateStatus(text, type = 'normal') {
+            statusText.textContent = text;
+            const dot = document.querySelector('.status-dot');
+            if (type === 'error') dot.style.background = '#f56565';
+            else if (type === 'loading') dot.style.background = '#ed8936';
+            else dot.style.background = '#48bb78';
+        }
+        
+        function addMessage(role, content, toolCalls = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = { 'user': '👤', 'assistant': '🤖', 'tool': '🔧', 'thinking': '🧠' }[role] || '💬';
+            
+            let contentHtml = `<div class="message-content">`;
+            
+            if (role === 'tool') {
+                contentHtml += `<div style="font-size: 12px; color: #ed8936; margin-bottom: 5px;">📊 工具调用结果:</div>`;
+                contentHtml += `<div style="font-family: monospace; font-size: 13px;">${content}</div>`;
+            } else if (role === 'thinking') {
+                contentHtml += `<div style="font-size: 12px; color: #9b59b6; margin-bottom: 5px;">💭 思维链过程:</div>`;
+                contentHtml += `<div style="font-style: italic; line-height: 1.6; white-space: pre-wrap;">${content}</div>`;
+            } else {
+                contentHtml += `<div style="white-space: pre-wrap;">${content}</div>`;
+            }
+            
+            if (toolCalls) {
+                contentHtml += `<div class="tool-call">`;
+                contentHtml += `<div class="tool-call-header">🔧 调用工具:</div>`;
+                toolCalls.forEach(toolCall => {
+                    contentHtml += `<div class="tool-call-content">`;
+                    contentHtml += `<strong>${toolCall.function.name}</strong><br>`;
+                    contentHtml += `<code>${toolCall.function.arguments}</code>`;
+                    contentHtml += `</div>`;
+                });
+                contentHtml += `</div>`;
+            }
+            
+            contentHtml += `<div class="message-time">${new Date().toLocaleTimeString()}</div></div>`;
+            messageDiv.innerHTML = `<div class="message-avatar">${avatar}</div>${contentHtml}`;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return messageDiv;
+        }
+        
+        let currentStreamingMessage = null;
+        let currentThinkingMessage = null;
+        let thinkingAccumulator = '';
+        
+        function appendStreamingContent(content, isThinking = false) {
+            if (isThinking) {
+                thinkingAccumulator += content;
+                if (!currentThinkingMessage) {
+                    currentThinkingMessage = addMessage('thinking', thinkingAccumulator);
+                } else {
+                    const contentDiv = currentThinkingMessage.querySelector('.message-content');
+                    const thinkingDiv = contentDiv.querySelector('div[style*="font-style: italic"]');
+                    if (thinkingDiv) {
+                        thinkingDiv.innerHTML = thinkingAccumulator;
+                    }
+                }
+            } else {
+                if (!currentStreamingMessage) {
+                    currentStreamingMessage = addMessage('assistant', content);
+                    currentStreamingMessage.classList.add('streaming-active');
+                } else {
+                    const contentDiv = currentStreamingMessage.querySelector('.message-content');
+                    const existingDiv = contentDiv.querySelector('div[style*="white-space"]');
+                    if (existingDiv) {
+                        existingDiv.innerHTML += content;
+                    }
+                }
+            }
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function finishStreaming() {
+            if (currentStreamingMessage) {
+                currentStreamingMessage.classList.remove('streaming-active');
+            }
+            currentStreamingMessage = null;
+            currentThinkingMessage = null;
+            thinkingAccumulator = '';
+        }
+        
+        async function sendMessage() {
+            const userMessage = messageInput.value.trim();
+            if (!userMessage) return;
+            
+            addMessage('user', userMessage);
+            const userMsgObj = { role: 'user', content: userMessage };
+            conversationHistory.push(userMsgObj);
+            messageInput.value = '';
+            
+            sendBtn.disabled = true;
+            sendBtn.textContent = '发送中...';
+            updateStatus('处理中...', 'loading');
+            
+            const maxTokens = parseInt(maxTokensInput.value);
+            const selectedModel = modelSelect.value;
+            const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+            const supportsTools = selectedOption?.dataset?.supportsTools === 'true';
+            const supportsThinking = selectedOption?.dataset?.supportsThinking === 'true';
+            
+            if (enableThinking && !supportsThinking) {
+                showError('当前模型不支持思维链功能，已自动关闭');
+                enableThinking = false;
+                thinkingToggle.checked = false;
+            }
+            
+            try {
+                if (isStreaming) {
+                    await processWithToolsStreaming(conversationHistory, selectedModel, maxTokens, supportsTools, supportsThinking, 0);
+                } else {
+                    await processWithToolsNormal(conversationHistory, selectedModel, maxTokens, supportsTools, supportsThinking, 0);
+                }
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                showError(`发送失败: ${error.message}`);
+                addMessage('assistant', `错误: ${error.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+                updateStatus('已连接', 'success');
+                finishStreaming();
+            }
+        }
+        
+        // 普通模式（非流式）
+        async function processWithToolsNormal(messages, model, maxTokens, supportsTools, supportsThinking, depth) {
+            const maxDepth = 5;
+            
+            const requestBody = {
+                model: model,
+                messages: messages,
+                temperature: 1.0,
+                max_tokens: maxTokens,
+                stream: false
+            };
+            
+            if (supportsTools) {
+                requestBody.tools = tools;
+                requestBody.tool_choice = 'auto';
+            }
+            
+            if (enableThinking && supportsThinking) {
+                requestBody.thinking = true;
+            }
+            
+            console.log('普通模式请求:', requestBody);
+            
+            const response = await fetch(getApiUrl('v1/chat/completions'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('未登录，请刷新页面重新登录');
+                }
+                const error = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(error.error || 'Request failed');
+            }
+            
+            const data = await response.json();
+            const message = data.choices[0].message;
+            
+            // 显示思维链
+            if (enableThinking && supportsThinking) {
+                let thinkingContent = message.reasoning_content || message.thinking || message.reasoning;
+                if (thinkingContent && thinkingContent.trim()) {
+                    addMessage('thinking', thinkingContent);
+                }
+            }
+            
+            // 处理工具调用
+            if (message.tool_calls && message.tool_calls.length > 0 && depth < maxDepth) {
+                addMessage('assistant', '正在调用工具...', message.tool_calls);
+                
+                const updatedMessages = [...messages, message];
+                
+                for (const toolCall of message.tool_calls) {
+                    const result = await executeTool(toolCall);
+                    let resultText = result.error ? `❌ ${result.error}` : 
+                                   result.result !== undefined ? `✅ ${result.expression} = ${result.result}` :
+                                   result.time ? `✅ 当前时间: ${result.time}` : `✅ 执行成功`;
+                    addMessage('tool', resultText);
+                    
+                    updatedMessages.push({
+                        tool_call_id: toolCall.id,
+                        role: 'tool',
+                        content: JSON.stringify(result)
+                    });
+                }
+                
+                await processWithToolsNormal(updatedMessages, model, maxTokens, supportsTools, supportsThinking, depth + 1);
+            } else if (message.content) {
+                addMessage('assistant', message.content);
+                conversationHistory.push(message);
+            }
+        }
+        
+        // 流式模式
+        async function processWithToolsStreaming(messages, model, maxTokens, supportsTools, supportsThinking, depth) {
+            const maxDepth = 5;
+            
+            const requestBody = {
+                model: model,
+                messages: messages,
+                temperature: 1.0,
+                max_tokens: maxTokens,
+                stream: true
+            };
+            
+            if (supportsTools) {
+                requestBody.tools = tools;
+                requestBody.tool_choice = 'auto';
+            }
+            
+            if (enableThinking && supportsThinking) {
+                requestBody.thinking = true;
+            }
+            
+            console.log('流式模式请求:', requestBody);
+            
+            const response = await fetch(getApiUrl('v1/chat/completions'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('未登录，请刷新页面重新登录');
+                }
+                const error = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(error.error || 'Request failed');
+            }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            let thinkingContent = '';
+            let hasToolCalls = false;
+            let toolCallsData = [];
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.choices && data.choices[0].delta) {
+                                const delta = data.choices[0].delta;
+                                
+                                // 检查工具调用
+                                if (delta.tool_calls) {
+                                    hasToolCalls = true;
+                                    for (const tc of delta.tool_calls) {
+                                        const existing = toolCallsData.find(t => t.index === tc.index);
+                                        if (existing) {
+                                            if (tc.function?.arguments) {
+                                                existing.function.arguments += tc.function.arguments;
+                                            }
+                                        } else {
+                                            toolCallsData.push({
+                                                index: tc.index,
+                                                id: tc.id,
+                                                type: tc.type,
+                                                function: {
+                                                    name: tc.function?.name || '',
+                                                    arguments: tc.function?.arguments || ''
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                                
+                                // 思维链内容
+                                if (enableThinking && supportsThinking) {
+                                    const thinkDelta = delta.reasoning_content || delta.thinking || delta.reasoning;
+                                    if (thinkDelta) {
+                                        thinkingContent += thinkDelta;
+                                        appendStreamingContent(thinkDelta, true);
+                                    }
+                                }
+                                
+                                // 普通内容
+                                if (delta.content) {
+                                    fullContent += delta.content;
+                                    appendStreamingContent(delta.content, false);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('解析失败:', e);
+                        }
+                    }
+                }
+            }
+            
+            // 处理工具调用（流式模式下）
+            if (hasToolCalls && depth < maxDepth) {
+                finishStreaming();
+                
+                // 构建完整的工具调用消息
+                const toolCalls = toolCallsData.map(tc => ({
+                    id: tc.id,
+                    type: tc.type,
+                    function: {
+                        name: tc.function.name,
+                        arguments: tc.function.arguments
+                    }
+                }));
+                
+                const assistantMessage = {
+                    role: 'assistant',
+                    content: null,
+                    tool_calls: toolCalls
+                };
+                
+                addMessage('assistant', '正在调用工具...', toolCalls);
+                
+                const updatedMessages = [...messages, assistantMessage];
+                
+                for (const toolCall of toolCalls) {
+                    const result = await executeTool(toolCall);
+                    let resultText = result.error ? `❌ ${result.error}` : 
+                                   result.result !== undefined ? `✅ ${result.expression} = ${result.result}` :
+                                   result.time ? `✅ 当前时间: ${result.time}` : `✅ 执行成功`;
+                    addMessage('tool', resultText);
+                    
+                    updatedMessages.push({
+                        tool_call_id: toolCall.id,
+                        role: 'tool',
+                        content: JSON.stringify(result)
+                    });
+                }
+                
+                // 继续用普通模式处理后续对话（因为工具调用后的响应通常不需要流式）
+                await processWithToolsNormal(updatedMessages, model, maxTokens, supportsTools, supportsThinking, depth + 1);
+            } else if (fullContent) {
+                const assistantMessage = { role: 'assistant', content: fullContent };
+                conversationHistory.push(assistantMessage);
+            }
+        }
+        
+        function clearChat() {
+            conversationHistory = [];
+            messagesContainer.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        对话已清空！有什么我可以帮你的吗？<br><br>
+                        💡 提示：开启思维链可以看到模型的思考过程
+                        <div class="message-time">刚刚</div>
+                    </div>
+                </div>
+            `;
+            finishStreaming();
+        }
+        
+        function toggleStream() {
+            isStreaming = !isStreaming;
+            streamToggleBtn.textContent = isStreaming ? '🟢 流式模式' : '🔴 普通模式';
+            streamToggleBtn.style.background = isStreaming ? '#48bb78' : '#f0f0f0';
+        }
+        
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        sendBtn.addEventListener('click', sendMessage);
+        clearChatBtn.addEventListener('click', clearChat);
+        streamToggleBtn.addEventListener('click', toggleStream);
+        thinkingToggle.addEventListener('change', (e) => {
+            enableThinking = e.target.checked;
+            const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+            const supportsThinking = selectedOption?.dataset?.supportsThinking === 'true';
+            if (enableThinking && !supportsThinking) {
+                showError('当前模型不支持思维链功能');
+                enableThinking = false;
+                thinkingToggle.checked = false;
+            }
+        });
+        
+        modelSelect.addEventListener('change', () => {
+            const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+            const supportsThinking = selectedOption?.dataset?.supportsThinking === 'true';
+            if (enableThinking && !supportsThinking) {
+                showError('当前模型不支持思维链，已自动关闭');
+                enableThinking = false;
+                thinkingToggle.checked = false;
+            }
+        });
+        
+        async function init() {
+            console.log('初始化聊天助手...');
+            renderTools();
+            
+            // 检查认证
+            const authenticated = await checkAuth();
+            if (authenticated) {
+                await loadModels();
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+            } else {
+                messageInput.disabled = true;
+                sendBtn.disabled = true;
+            }
+            
+            console.log('初始化完成');
+        }
+        
+        init();
+    </script>
+</body>
+</html>

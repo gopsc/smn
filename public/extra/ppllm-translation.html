@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能翻译助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .settings-bar {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .setting-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .setting-group label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        select, button {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select {
+            background: white;
+        }
+
+        select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            font-weight: 500;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .mode-btn {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .content-area {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .input-area, .output-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .area-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .area-header h3 {
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .char-count {
+            font-size: 12px;
+            color: #999;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .output-box {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            min-height: 400px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+            font-size: 16px;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .output-box.streaming {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .action-btn {
+            background: #f0f0f0;
+            color: #666;
+            padding: 8px 20px;
+        }
+
+        .action-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .translate-btn {
+            background: #48bb78;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            margin: 0 20px 20px;
+            width: calc(100% - 40px);
+        }
+
+        .translate-btn:hover:not(:disabled) {
+            background: #38a169;
+        }
+
+        .translate-btn:disabled {
+            background: #c0c0c0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 0 20px 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 0 20px 20px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .proxy-status {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .model-loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 768px) {
+            .content-area {
+                flex-direction: column;
+            }
+            
+            .settings-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .mode-buttons {
+                margin-left: 0;
+            }
+            
+            textarea, .output-box {
+                height: 250px;
+                min-height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 智能翻译助手</h1>
+            <p>高质量英文翻译中文服务</p>
+        </div>
+
+        <div class="main-card">
+            <div class="settings-bar">
+                <div class="setting-group">
+                    <label>选择模型:</label>
+                    <select id="modelSelect" disabled>
+                        <option value="">正在加载模型...</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>🌡️ 温度:</label>
+                    <span style="background: #e8f5e9; padding: 4px 12px; border-radius: 8px; color: #2e7d32; font-weight: 500;">
+                        固定为 1.0
+                    </span>
+                </div>
+                <div class="mode-buttons">
+                    <button id="normalModeBtn" class="mode-btn active">普通模式</button>
+                    <button id="streamModeBtn" class="mode-btn">流式模式</button>
+                </div>
+                <div class="proxy-status" id="proxyStatus">
+                    🔗 检查连接中...
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="input-area">
+                    <div class="area-header">
+                        <h3>📝 英文原文</h3>
+                        <span class="char-count" id="inputCharCount">0 字符</span>
+                    </div>
+                    <textarea id="inputText" placeholder="请输入要翻译的英文内容...&#10;&#10;例如：&#10;Artificial intelligence is transforming the world in unprecedented ways."></textarea>
+                    <div class="action-buttons">
+                        <button class="action-btn" id="clearBtn">清空</button>
+                        <button class="action-btn" id="exampleBtn">示例文本</button>
+                    </div>
+                </div>
+
+                <div class="output-area">
+                    <div class="area-header">
+                        <h3>📖 中文翻译</h3>
+                        <span class="char-count" id="outputCharCount">0 字符</span>
+                    </div>
+                    <div id="outputText" class="output-box"></div>
+                    <div class="action-buttons">
+                        <button class="action-btn" id="copyBtn">复制翻译</button>
+                        <button class="action-btn" id="clearOutputBtn">清空输出</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="translateBtn" class="translate-btn" disabled>✨ 开始翻译</button>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+    </div>
+
+    <script>
+        // 代理配置 - 目标地址改为5002
+        const PROXY_BASE_URL = '/proxy';
+        const TARGET_API = 'http://localhost:5002';  // 目标API地址
+        
+        let currentModel = '';
+        let isStreaming = false;
+        let isAuthenticated = false;
+        let modelsLoaded = false;
+        const TEMPERATURE = 1.0;
+
+        // DOM 元素
+        const modelSelect = document.getElementById('modelSelect');
+        const inputText = document.getElementById('inputText');
+        const outputText = document.getElementById('outputText');
+        const translateBtn = document.getElementById('translateBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const exampleBtn = document.getElementById('exampleBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const clearOutputBtn = document.getElementById('clearOutputBtn');
+        const normalModeBtn = document.getElementById('normalModeBtn');
+        const streamModeBtn = document.getElementById('streamModeBtn');
+        const inputCharCount = document.getElementById('inputCharCount');
+        const outputCharCount = document.getElementById('outputCharCount');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const proxyStatus = document.getElementById('proxyStatus');
+
+        // 辅助函数
+        function getApiUrl(endpoint) {
+            // 构建代理URL
+            const url = `${PROXY_BASE_URL}/${TARGET_API}/${endpoint}`;
+            console.log('API URL:', url);
+            return url;
+        }
+
+        // 显示错误消息
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.classList.add('show');
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+
+        // 显示成功消息
+        function showSuccess(msg) {
+            successMessage.textContent = msg;
+            successMessage.classList.add('show');
+            setTimeout(() => {
+                successMessage.classList.remove('show');
+            }, 2000);
+        }
+
+        // 更新代理状态
+        function updateProxyStatus(status, isError = false) {
+            if (isError) {
+                proxyStatus.innerHTML = status;
+                proxyStatus.style.background = '#ffebee';
+                proxyStatus.style.color = '#c62828';
+            } else {
+                proxyStatus.innerHTML = status;
+                proxyStatus.style.background = '#c8e6c9';
+                proxyStatus.style.color = '#2e7d32';
+            }
+        }
+
+        // 检查认证状态
+        async function checkAuth() {
+            try {
+                console.log('检查认证状态...');
+                const response = await fetch('/api/check-auth', {
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('认证状态:', data);
+                isAuthenticated = data.authenticated;
+                
+                if (!isAuthenticated) {
+                    updateProxyStatus('🔒 未登录，请先登录', true);
+                    showError('请先登录文件浏览器后再使用翻译功能');
+                    translateBtn.disabled = true;
+                    modelSelect.disabled = true;
+                    return false;
+                }
+                
+                updateProxyStatus('✅ 代理已连接');
+                translateBtn.disabled = false;
+                return true;
+            } catch (error) {
+                console.error('认证检查失败:', error);
+                updateProxyStatus('⚠️ 无法连接到代理服务', true);
+                showError('无法连接到文件浏览器代理服务，请确保服务已启动');
+                translateBtn.disabled = true;
+                modelSelect.disabled = true;
+                return false;
+            }
+        }
+
+        // 测试代理连接
+        async function testProxyConnection() {
+            try {
+                console.log('测试代理连接...');
+                const testUrl = getApiUrl('v1/models');
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                console.log('代理测试响应状态:', response.status);
+                return response.ok;
+            } catch (error) {
+                console.error('代理测试失败:', error);
+                return false;
+            }
+        }
+
+        // 加载可用模型
+        async function loadModels() {
+            try {
+                console.log('开始加载模型...');
+                modelSelect.disabled = true;
+                modelSelect.innerHTML = '<option value="">⏳ 正在加载模型...</option>';
+                
+                // 先测试代理连接
+                const proxyWorking = await testProxyConnection();
+                if (!proxyWorking) {
+                    throw new Error('代理服务无法连接到目标API');
+                }
+                
+                const url = getApiUrl('v1/models');
+                console.log('请求模型列表:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('模型列表响应状态:', response.status);
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('未登录，请刷新页面重新登录');
+                    }
+                    const errorText = await response.text();
+                    console.error('错误响应:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('模型数据:', data);
+                
+                if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                    modelSelect.innerHTML = '';
+                    data.data.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = `${model.id} ${model.supports_tools ? '🛠️' : ''}`;
+                        modelSelect.appendChild(option);
+                    });
+                    currentModel = data.data[0].id;
+                    modelSelect.value = currentModel;
+                    modelSelect.disabled = false;
+                    modelsLoaded = true;
+                    showSuccess(`成功加载 ${data.data.length} 个模型`);
+                    console.log('模型加载成功:', currentModel);
+                } else {
+                    throw new Error('未找到可用模型');
+                }
+            } catch (error) {
+                console.error('加载模型失败:', error);
+                modelSelect.innerHTML = '<option value="">❌ 连接失败</option>';
+                modelSelect.disabled = true;
+                showError(`加载模型失败: ${error.message}`);
+                updateProxyStatus('⚠️ 无法连接到翻译服务', true);
+            }
+        }
+
+        // 设置事件监听
+        function setupEventListeners() {
+            translateBtn.addEventListener('click', translate);
+            clearBtn.addEventListener('click', () => {
+                inputText.value = '';
+                updateCharCount();
+            });
+            exampleBtn.addEventListener('click', loadExample);
+            copyBtn.addEventListener('click', copyTranslation);
+            clearOutputBtn.addEventListener('click', () => {
+                outputText.textContent = '';
+                outputText.classList.remove('streaming');
+                updateCharCount();
+            });
+            inputText.addEventListener('input', updateCharCount);
+            
+            normalModeBtn.addEventListener('click', () => {
+                isStreaming = false;
+                normalModeBtn.classList.add('active');
+                streamModeBtn.classList.remove('active');
+                showSuccess('已切换到普通模式');
+            });
+            
+            streamModeBtn.addEventListener('click', () => {
+                isStreaming = true;
+                streamModeBtn.classList.add('active');
+                normalModeBtn.classList.remove('active');
+                showSuccess('已切换到流式模式');
+            });
+        }
+
+        // 更新字符计数
+        function updateCharCount() {
+            const inputLen = inputText.value.length;
+            const outputLen = outputText.textContent.length;
+            inputCharCount.textContent = `${inputLen} 字符`;
+            outputCharCount.textContent = `${outputLen} 字符`;
+        }
+
+        // 加载示例文本
+        function loadExample() {
+            const examples = [
+                "Artificial intelligence is transforming the world in unprecedented ways. From healthcare to transportation, AI is revolutionizing every aspect of our lives.",
+                "The rapid advancement of technology has created new opportunities for innovation and growth. However, it also brings challenges that we must address collectively.",
+                "In today's interconnected world, effective communication across languages and cultures is more important than ever before.",
+                "Quantum computing represents a paradigm shift in computational capabilities, offering solutions to problems that were previously considered intractable."
+            ];
+            const randomExample = examples[Math.floor(Math.random() * examples.length)];
+            inputText.value = randomExample;
+            updateCharCount();
+            showSuccess('已加载示例文本');
+        }
+
+        // 复制翻译结果
+        async function copyTranslation() {
+            const text = outputText.textContent;
+            if (!text) {
+                showError('没有可复制的内容');
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                showSuccess('已复制到剪贴板');
+            } catch (err) {
+                showError('复制失败，请手动复制');
+            }
+        }
+
+        // 翻译函数
+        async function translate() {
+            // 检查认证
+            if (!isAuthenticated) {
+                const authOk = await checkAuth();
+                if (!authOk) return;
+            }
+            
+            // 检查模型是否已加载
+            if (!modelsLoaded && modelSelect.disabled) {
+                showError('模型正在加载中，请稍后再试');
+                return;
+            }
+            
+            const text = inputText.value.trim();
+            if (!text) {
+                showError('请输入要翻译的英文内容');
+                return;
+            }
+
+            const model = modelSelect.value;
+            if (!model || modelSelect.disabled) {
+                showError('请选择一个可用的模型');
+                return;
+            }
+
+            // 构建翻译提示词
+            const systemPrompt = "你是一个专业的英文翻译专家。你的任务是将用户提供的英文内容准确、流畅地翻译成中文。翻译时要保持原文的风格和语气，注意专业术语的准确性，确保译文自然通顺。只返回翻译结果，不要添加任何解释或评论。";
+            
+            const messages = [
+                {
+                    role: "system",
+                    content: systemPrompt
+                },
+                {
+                    role: "user",
+                    content: `请将以下英文翻译成中文：\n\n${text}`
+                }
+            ];
+
+            // 禁用翻译按钮
+            translateBtn.disabled = true;
+            translateBtn.innerHTML = '<span class="loading"></span>翻译中...';
+            
+            // 清空之前的输出
+            outputText.textContent = '';
+            if (isStreaming) {
+                outputText.classList.add('streaming');
+            }
+
+            try {
+                if (isStreaming) {
+                    await translateStream(model, messages);
+                } else {
+                    await translateNormal(model, messages);
+                }
+                updateCharCount();
+                showSuccess('翻译完成');
+            } catch (error) {
+                console.error('翻译失败:', error);
+                showError(`翻译失败: ${error.message}`);
+                outputText.textContent = `翻译失败: ${error.message}`;
+            } finally {
+                translateBtn.disabled = false;
+                translateBtn.innerHTML = '✨ 开始翻译';
+                outputText.classList.remove('streaming');
+            }
+        }
+
+        // 普通模式翻译
+        async function translateNormal(model, messages) {
+            const requestBody = {
+                model: model,
+                messages: messages,
+                temperature: TEMPERATURE,
+                max_tokens: 4096,
+                stream: false
+            };
+            
+            console.log('普通模式请求:', requestBody);
+            
+            const response = await fetch(getApiUrl('v1/chat/completions'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('未登录，请刷新页面重新登录');
+                }
+                const error = await response.json().catch(() => ({ error: response.statusText }));
+                throw new Error(error.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('翻译响应:', data);
+            const message = data.choices[0].message;
+            outputText.textContent = message.content;
+        }
+
+        // 流式模式翻译
+        async function translateStream(model, messages) {
+            const requestBody = {
+                model: model,
+                messages: messages,
+                temperature: TEMPERATURE,
+                max_tokens: 4096,
+                stream: true
+            };
+            
+            console.log('流式模式请求:', requestBody);
+            
+            const response = await fetch(getApiUrl('v1/chat/completions'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('未登录，请刷新页面重新登录');
+                }
+                const error = await response.text();
+                throw new Error(`HTTP ${response.status}: ${error}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let translation = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const jsonStr = line.slice(6);
+                            const data = JSON.parse(jsonStr);
+                            
+                            if (data.choices && data.choices[0].delta) {
+                                const delta = data.choices[0].delta;
+                                
+                                if (delta.content) {
+                                    translation += delta.content;
+                                    outputText.textContent = translation;
+                                    updateCharCount();
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('解析SSE数据失败:', e, line);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 初始化应用
+        async function init() {
+            console.log('初始化翻译助手...');
+            setupEventListeners();
+            
+            // 检查认证
+            const authenticated = await checkAuth();
+            if (authenticated) {
+                // 加载模型
+                await loadModels();
+            }
+            
+            updateCharCount();
+            console.log('初始化完成');
+        }
+
+        // 页面加载完成后初始化
+        init();
+    </script>
+</body>
+</html>
