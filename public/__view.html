@@ -726,7 +726,8 @@
         // 当前要删除的项目
         let deleteItem = {
             name: null,
-            type: null
+            type: null,
+            fullPath: null
         };
         // 当前要重命名的项目
         let renameItem = {
@@ -1460,7 +1461,9 @@
             }
             
             files.forEach((file, index) => {
-                const itemPath = file.path || file.name;
+                // 构建完整路径 - 关键修复
+                const itemFullPath = file.path || file.name;
+                const jsSafePath = itemFullPath.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 const escapedName = escapeHtml(file.name);
                 // 对文件名进行转义，用于JavaScript字符串
                 const jsSafeName = file.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -1468,7 +1471,7 @@
                 // 检查是否在剪切列表中
                 const isInCutList = cutItems.some(item => 
                     item.name === file.name && 
-                    item.path === (currentPath !== '/' ? currentPath : '')
+                    item.path === itemFullPath
                 );
                 
                 // 只有在登录状态下才显示复选框
@@ -1477,8 +1480,9 @@
                         <input type="checkbox" 
                                data-name="${escapedName}"
                                data-type="${file.type}"
-                               onchange="toggleSelect(this.dataset.name, this.dataset.type, this)" 
-                               ${selectedItems.has(JSON.stringify({name: file.name, type: file.type})) ? 'checked' : ''}>
+                               data-path="${jsSafePath}"
+                               onchange="toggleSelect(this.dataset.name, this.dataset.type, this.dataset.path, this)" 
+                               ${selectedItems.has(JSON.stringify({name: file.name, type: file.type, path: itemFullPath})) ? 'checked' : ''}>
                     </td>
                 ` : '';
                 
@@ -1489,16 +1493,16 @@
                             ${checkboxHtml}
                             <td>
                                 <span class="icon">📁</span>
-                                <a href="${itemPath}" class="dir-name" onclick="navigateTo('${itemPath}'); return false;">${escapedName}</a>
+                                <a href="${itemFullPath}" class="dir-name" onclick="navigateTo('${itemFullPath}'); return false;">${escapedName}</a>
                             </td>
                             <td class="file-size">-</td>
                             <td class="file-modified">${file.modified || ''}</td>
                             <td>
                                 ${isLoggedIn ? `
                                 <div class="file-actions">
-                                    <button class="action-btn cut ${isInCutList ? 'cut-active' : ''}" onclick="cutItem('${jsSafeName}', 'dir')" title="剪切">✂️ 剪切</button>
+                                    <button class="action-btn cut ${isInCutList ? 'cut-active' : ''}" onclick="cutItem('${jsSafeName}', 'dir', '${jsSafePath}')" title="剪切">✂️ 剪切</button>
                                     <button class="action-btn rename" onclick="showRenameModal('${jsSafeName}', 'dir')">✏️ 重命名</button>
-                                    <button class="action-btn delete" onclick="showDeleteModal('${jsSafeName}', 'dir')">🗑️ 删除</button>
+                                    <button class="action-btn delete" onclick="showDeleteModal('${jsSafeName}', 'dir', '${jsSafePath}')">🗑️ 删除</button>
                                 </div>
                                 ` : ''}
                             </td>
@@ -1511,17 +1515,17 @@
                             ${checkboxHtml}
                             <td>
                                 <span class="icon">📄</span>
-                                <a href="${itemPath}" class="file-name" target="_blank">${escapedName}</a>
+                                <a href="${itemFullPath}" class="file-name" target="_blank">${escapedName}</a>
                             </td>
                             <td class="file-size">${formatFileSize(file.size)}</td>
                             <td class="file-modified">${file.modified || ''}</td>
                             <td>
                                 ${isLoggedIn ? `
                                 <div class="file-actions">
-                                    <button class="action-btn download" onclick="downloadFile('${jsSafeName}')">⬇️ 下载</button>
-                                    <button class="action-btn cut ${isInCutList ? 'cut-active' : ''}" onclick="cutItem('${jsSafeName}', 'file')" title="剪切">✂️ 剪切</button>
+                                    <button class="action-btn download" onclick="downloadFile('${jsSafePath}')">⬇️ 下载</button>
+                                    <button class="action-btn cut ${isInCutList ? 'cut-active' : ''}" onclick="cutItem('${jsSafeName}', 'file', '${jsSafePath}')" title="剪切">✂️ 剪切</button>
                                     <button class="action-btn rename" onclick="showRenameModal('${jsSafeName}', 'file')">✏️ 重命名</button>
-                                    <button class="action-btn delete" onclick="showDeleteModal('${jsSafeName}', 'file')">🗑️ 删除</button>
+                                    <button class="action-btn delete" onclick="showDeleteModal('${jsSafeName}', 'file', '${jsSafePath}')">🗑️ 删除</button>
                                 </div>
                                 ` : ''}
                             </td>
@@ -1554,27 +1558,27 @@
         }
     
         // 下载文件
-        async function downloadFile(filename) {
+        async function downloadFile(fullPath) {
             if (!isLoggedIn) {
                 showMessage('error', '请先登录');
                 return;
             }
             
-            console.log('下载文件:', filename);
+            console.log('下载文件:', fullPath);
             
             try {
                 // 构建下载URL
-                const downloadUrl = '/download/' + encodeURIComponent(filename);
+                const downloadUrl = '/download/' + encodeURIComponent(fullPath);
                 
                 // 创建一个隐藏的a标签来触发下载
                 const link = document.createElement('a');
                 link.href = downloadUrl;
-                link.download = filename;
+                link.download = fullPath.split('/').pop();
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 
-                showMessage('success', `开始下载: ${filename}`);
+                showMessage('success', `开始下载: ${fullPath.split('/').pop()}`);
             } catch (error) {
                 console.error('Download error:', error);
                 showMessage('error', '下载失败：' + error.message);
@@ -1584,23 +1588,21 @@
         // ==================== 剪切/粘贴功能 ====================
         
         // 剪切单个项目
-        function cutItem(name, type) {
+        function cutItem(name, type, fullPath) {
             if (!isLoggedIn) {
                 showMessage('error', '请先登录');
                 return;
             }
             
-            const itemPath = currentPath !== '/' ? currentPath : '';
-            
             // 检查是否已经在剪切列表中
-            const exists = cutItems.some(i => i.name === name && i.path === itemPath);
+            const exists = cutItems.some(i => i.name === name && i.path === fullPath);
             if (exists) {
                 // 如果已经在列表中，则移除
-                removeFromCutItems(name, itemPath);
+                removeFromCutItems(name, fullPath);
                 showMessage('info', `已取消剪切: ${name}`);
             } else {
                 // 添加到剪切列表
-                addToCutItems({ name: name, type: type, path: itemPath });
+                addToCutItems({ name: name, type: type, path: fullPath });
                 showMessage('success', `已剪切: ${name}`);
             }
             
@@ -1616,17 +1618,16 @@
                 return;
             }
             
-            const currentDir = currentPath !== '/' ? currentPath : '';
             const items = Array.from(selectedItems).map(item => JSON.parse(item));
             
             // 添加到剪切列表
             let addedCount = 0;
             items.forEach(item => {
-                if (!cutItems.some(i => i.name === item.name && i.path === currentDir)) {
+                if (!cutItems.some(i => i.name === item.name && i.path === item.path)) {
                     addToCutItems({
                         name: item.name,
                         type: item.type,
-                        path: currentDir
+                        path: item.path
                     });
                     addedCount++;
                 }
@@ -1657,13 +1658,7 @@
             const targetPath = currentPath !== '/' ? currentPath : '';
             
             // 构建源路径列表
-            const sourcePaths = cutItems.map(item => {
-                if (item.path) {
-                    return item.path + '/' + item.name;
-                } else {
-                    return item.name;
-                }
-            });
+            const sourcePaths = cutItems.map(item => item.path);
             
             showMessage('info', '正在移动文件...');
             
@@ -1713,10 +1708,10 @@
         }
     
         // 选择/取消选择项目
-        function toggleSelect(name, type, checkbox) {
-            console.log('toggleSelect called with:', {name, type, checked: checkbox.checked});
+        function toggleSelect(name, type, path, checkbox) {
+            console.log('toggleSelect called with:', {name, type, path, checked: checkbox.checked});
             
-            const item = JSON.stringify({name, type});
+            const item = JSON.stringify({name, type, path});
             
             if (checkbox.checked) {
                 selectedItems.add(item);
@@ -1746,7 +1741,8 @@
             
             if (checked) {
                 filesData.forEach(file => {
-                    selectedItems.add(JSON.stringify({name: file.name, type: file.type}));
+                    const fullPath = file.path || file.name;
+                    selectedItems.add(JSON.stringify({name: file.name, type: file.type, path: fullPath}));
                 });
                 checkboxes.forEach(cb => cb.checked = true);
             } else {
@@ -2033,17 +2029,18 @@
         }
     
         // 显示删除确认模态框（单个项目）
-        function showDeleteModal(name, type) {
+        function showDeleteModal(name, type, fullPath) {
             if (!isLoggedIn) {
                 showMessage('error', '请先登录');
                 return;
             }
             
-            console.log('显示删除模态框:', name, type);
+            console.log('显示删除模态框:', name, type, fullPath);
             
-            // 保存到局部变量
+            // 保存到删除项目对象
             deleteItem.name = name;
             deleteItem.type = type;
+            deleteItem.fullPath = fullPath;
             
             document.getElementById('deleteFileName').textContent = name;
             
@@ -2063,16 +2060,15 @@
     
         // 关闭删除模态框
         function closeDeleteModal() {
-            // 不清空 deleteItem，只关闭模态框
             document.getElementById('deleteModal').style.display = 'none';
         }
     
         // 确认删除单个项目
         async function confirmDelete() {
-            const name = deleteItem.name;
+            const fullPath = deleteItem.fullPath;
             const type = deleteItem.type;
             
-            if (!name) {
+            if (!fullPath) {
                 showMessage('error', '没有要删除的项目');
                 closeDeleteModal();
                 return;
@@ -2086,14 +2082,13 @@
     
             try {
                 console.log('删除请求:', {
-                    name: name,
+                    name: fullPath,
                     type: type,
                     recursive: recursive
                 });
                 
                 const requestBody = { 
-                    name: name,
-                    type: type,
+                    name: fullPath,
                     recursive: recursive
                 };
                 
@@ -2110,30 +2105,25 @@
                 console.log('删除响应:', data);
     
                 if (response.ok) {
-                    showMessage('success', `${type === 'dir' ? '目录' : '文件'} ${name} 删除成功`);
+                    showMessage('success', `${type === 'dir' ? '目录' : '文件'} 删除成功`);
                     // 清空 deleteItem
-                    deleteItem.name = null;
-                    deleteItem.type = null;
+                    deleteItem = { name: null, type: null, fullPath: null };
                     // 重新加载当前页面
                     setTimeout(() => location.reload(), 1000);
                 } else {
                     if (data.requires_confirmation) {
                         // 需要确认是否递归删除
-                        showDeleteModal(name, type);
+                        showDeleteModal(deleteItem.name, type, fullPath);
                         showMessage('info', '目录不为空，请勾选"递归删除"选项');
                     } else {
                         showMessage('error', data.error || '删除失败');
-                        // 清空 deleteItem
-                        deleteItem.name = null;
-                        deleteItem.type = null;
+                        deleteItem = { name: null, type: null, fullPath: null };
                     }
                 }
             } catch (error) {
                 console.error('Delete error:', error);
                 showMessage('error', '删除失败：网络错误');
-                // 清空 deleteItem
-                deleteItem.name = null;
-                deleteItem.type = null;
+                deleteItem = { name: null, type: null, fullPath: null };
             }
         }
     
@@ -2177,13 +2167,16 @@
             try {
                 console.log('批量删除请求:', { items, recursive });
                 
+                // 构建要删除的项目列表（使用完整路径作为name）
+                const deleteItems = items.map(item => item.path);
+                
                 const response = await fetch('/delete-multiple', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ 
-                        items: items,
+                        items: deleteItems,
                         recursive: recursive
                     }),
                     credentials: 'same-origin'
