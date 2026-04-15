@@ -45,7 +45,6 @@ args = parser.parse_args()
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
-#Flask-SocketIO 默认使用 eventlet 作为异步后端，但 eventlet.wsgi.server() 不支持 ssl_context 参数。
 
 # ==================== 配置类 ====================
 class Config:
@@ -65,8 +64,7 @@ class Config:
     PERMANENT_SESSION_LIFETIME = datetime.timedelta(hours=24)
     
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024
-    # 移除文件类型限制，允许所有文件
-    UPLOAD_EXTENSIONS = None  # 设为 None 表示不限制
+    UPLOAD_EXTENSIONS = None
     
     PASSWORD_MIN_LENGTH = 8
     PASSWORD_REQUIRE_UPPERCASE = True
@@ -205,6 +203,79 @@ if file_config['proxy'].get('allowed_targets'):
     PROXY_ALLOWED_TARGETS = [target.strip() for target in file_config['proxy']['allowed_targets'].split(',') if target.strip()]
 logger.info(f"Proxy enabled: {PROXY_ENABLED}, allowed targets: {PROXY_ALLOWED_TARGETS}")
 
+# ==================== 权限检查辅助函数 ====================
+def check_file_access(file_path, operation='read'):
+    """
+    检查用户是否有权限访问指定文件/目录
+    返回 (has_access, error_message)
+    """
+    if 'user_id' not in session:
+        return False, "请先登录"
+    
+    user_id = session['user_id']
+    username = session['username']
+    
+    # Admin 用户（user_id == 1）有完全访问权限
+    if user_id == 1:
+        return True, None
+    
+    # 普通用户：只能访问 users/用户名/ 目录下的内容
+    # 获取相对于根目录的路径
+    try:
+        rel_path = os.path.relpath(file_path, HTML_ROOT_DIR)
+    except ValueError:
+        return False, "无效的路径"
+    
+    # 如果路径是 '.'，表示根目录，普通用户不能访问根目录
+    if rel_path == '.':
+        return False, "普通用户只能访问自己的文件夹"
+    
+    # 标准化路径（使用正斜杠）
+    rel_path = rel_path.replace('\\', '/')
+    path_parts = rel_path.split('/')
+    
+    # 检查第一级目录是否是 'users'
+    if len(path_parts) < 1 or path_parts[0] != 'users':
+        return False, f"普通用户只能访问 users 目录下的内容"
+    
+    # 检查第二级目录是否是用户自己的用户名
+    if len(path_parts) < 2 or path_parts[1] != username:
+        return False, f"普通用户只能访问自己用户名对应的文件夹 (users/{username}/)"
+    
+    return True, None
+
+def get_user_accessible_path(requested_path):
+    """
+    获取用户可访问的路径
+    Admin: 返回原始路径
+    普通用户: 确保路径在 users/用户名/ 下
+    """
+    if 'user_id' not in session:
+        return None, "未登录"
+    
+    user_id = session['user_id']
+    username = session['username']
+    
+    # Admin 用户可以访问任何路径
+    if user_id == 1:
+        return requested_path, None
+    
+    # 普通用户：确保路径在 users/用户名/ 下
+    # 如果请求的是 users 目录但不是自己的，重定向
+    if requested_path is None or requested_path == '':
+        # 访问根目录，重定向到用户自己的目录
+        return f"users/{username}", None
+    
+    # 标准化请求路径
+    requested_path = requested_path.lstrip('/')
+    path_parts = requested_path.split('/')
+    
+    # 如果请求路径不以 users/用户名 开头，重定向
+    if len(path_parts) < 2 or path_parts[0] != 'users' or path_parts[1] != username:
+        return f"users/{username}", None
+    
+    return requested_path, None
+
 # ==================== WebSocket 代理管理 ====================
 class WebSocketProxyManager:
     def __init__(self):
@@ -293,10 +364,9 @@ def websocket_proxy_thread(sid, target_url):
 def handle_connect():
     """客户端连接"""
     logger.info(f"Client connected: {request.sid}")
-    # 检查 session 认证
     if 'user_id' not in session:
         logger.warning(f"Unauthorized WebSocket connection from {request.sid}")
-        return False  # 拒绝连接
+        return False
     emit('connected', {'message': 'WebSocket connected successfully'})
 
 @socketio.on('disconnect')
@@ -314,7 +384,6 @@ def handle_ws_connect(data):
             emit('ws_error', {'error': 'No target URL provided'})
             return
         
-        # 验证目标是否在白名单中
         is_allowed = False
         for allowed_target in PROXY_ALLOWED_TARGETS:
             if target_url.startswith(allowed_target):
@@ -327,10 +396,8 @@ def handle_ws_connect(data):
         
         logger.info(f"User {session.get('username')} connecting to {target_url}")
         
-        # 添加连接记录
         ws_manager.add_connection(request.sid, target_url)
         
-        # 启动代理线程
         thread = threading.Thread(
             target=websocket_proxy_thread,
             args=(request.sid, target_url)
@@ -535,8 +602,6 @@ def safe_path_join(base_dir, user_path):
     return full_path_real
 
 def allowed_file(filename):
-    """移除文件类型限制，允许所有文件"""
-    # 不限制文件类型，总是返回 True
     return True
 
 def is_valid_folder_name(folder_name):
@@ -619,8 +684,29 @@ def proxy_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def file_access_required(f):
+    """装饰器：检查文件访问权限"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': '请先登录'}), 401
+        
+        # 获取文件路径参数
+        file_path_param = kwargs.get('file_path') or kwargs.get('folder_path') or kwargs.get('path')
+        
+        if file_path_param:
+            try:
+                full_path = safe_path_join(HTML_ROOT_DIR, file_path_param)
+                has_access, error_msg = check_file_access(full_path)
+                if not has_access:
+                    return jsonify({'error': error_msg}), 403
+            except APIError as e:
+                return jsonify({'error': e.message}), e.status_code
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
-# ==================== HTTP 代理视图（增强流式支持） ====================
+# ==================== HTTP 代理视图 ====================
 @app.route('/proxy/<path:target>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
 @login_required
 @proxy_required
@@ -629,7 +715,6 @@ def proxy_request(target):
     try:
         method = request.method
         
-        # 检查是否是 WebSocket 升级请求
         upgrade = request.headers.get('Upgrade', '').lower()
         connection = request.headers.get('Connection', '').lower()
         
@@ -642,7 +727,6 @@ def proxy_request(target):
             response.headers['X-SocketIO-Endpoint'] = '/socket.io'
             return response
         
-        # 处理 OPTIONS 预检请求
         if method == 'OPTIONS':
             response = Response()
             response.headers['Access-Control-Allow-Origin'] = '*'
@@ -671,7 +755,6 @@ def proxy_request(target):
         elif not target_url.startswith('http://') and not target_url.startswith('https://'):
             target_url = 'http://' + target_url
         
-        # 检查是否允许代理
         is_allowed = False
         for allowed_target in PROXY_ALLOWED_TARGETS:
             if target_url.startswith(allowed_target):
@@ -681,12 +764,10 @@ def proxy_request(target):
         if not is_allowed:
             return jsonify({'error': '不允许代理到此目标地址', 'allowed_targets': PROXY_ALLOWED_TARGETS}), 403
         
-        # 检查是否是流式请求
         is_stream_request = False
         accept_header = request.headers.get('Accept', '')
         is_sse_request = 'text/event-stream' in accept_header or 'application/x-ndjson' in accept_header
         
-        # 检查请求体中的 stream 参数
         if method in ['POST', 'PUT', 'PATCH'] and data:
             try:
                 if isinstance(data, bytes):
@@ -702,9 +783,7 @@ def proxy_request(target):
         logger.info(f"User {session.get('username')} proxy {method} request to {target_url}, stream={is_stream_request or is_sse_request}")
         
         try:
-            # 如果是流式请求，使用流式处理
             if is_stream_request or is_sse_request:
-                # 创建流式请求
                 req = requests.Request(
                     method=method,
                     url=target_url,
@@ -714,7 +793,6 @@ def proxy_request(target):
                 )
                 prepared = req.prepare()
                 
-                # 使用 Session 发送流式请求
                 session_req = requests.Session()
                 response = session_req.send(
                     prepared,
@@ -725,13 +803,9 @@ def proxy_request(target):
                 
                 def generate():
                     try:
-                        # 逐块读取并立即发送，使用较小的块大小以获得更好的实时性
                         for chunk in response.iter_content(chunk_size=256, decode_unicode=False):
                             if chunk:
                                 yield chunk
-                                # 强制刷新缓冲区
-                                if hasattr(chunk, 'flush'):
-                                    chunk.flush()
                     except GeneratorExit:
                         logger.info(f"Stream client disconnected for {target_url}")
                     except Exception as e:
@@ -740,16 +814,14 @@ def proxy_request(target):
                         response.close()
                         session_req.close()
                 
-                # 构建响应头
                 response_headers = {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
                     'Expires': '0',
-                    'X-Accel-Buffering': 'no',  # 禁用 nginx 缓冲
+                    'X-Accel-Buffering': 'no',
                     'X-Content-Type-Options': 'nosniff'
                 }
                 
-                # 复制重要的响应头
                 for key, value in response.headers.items():
                     key_lower = key.lower()
                     if key_lower in ['content-type', 'cache-control']:
@@ -757,7 +829,6 @@ def proxy_request(target):
                     if key_lower not in ['content-encoding', 'transfer-encoding', 'connection', 'content-length']:
                         response_headers[key] = value
                 
-                # 设置正确的 Content-Type
                 if is_sse_request:
                     response_headers['Content-Type'] = 'text/event-stream'
                 elif response.headers.get('Content-Type'):
@@ -770,7 +841,6 @@ def proxy_request(target):
                     direct_passthrough=True
                 )
             else:
-                # 普通响应
                 response = requests.request(
                     method=method,
                     url=target_url,
@@ -851,18 +921,27 @@ def test_proxy_target():
         logger.error(f"Proxy test error: {str(e)}")
         return jsonify({'error': f'测试失败: {str(e)}'}), 500
 
-# ==================== 文件列表接口 ====================
+# ==================== 文件列表接口（修改：增加权限控制）====================
 @app.route('/api/filelist', methods=['GET'])
 @login_required
 @filesystem_required
 def get_file_list():
     """
     获取指定目录下的文件列表，返回JSON格式
-    可通过path参数指定子目录，默认为根目录
+    普通用户只能看到 users/用户名/ 目录下的内容
     """
     try:
         # 获取请求参数
-        path = request.args.get('path', '')
+        requested_path = request.args.get('path', '')
+        
+        # 根据用户权限调整路径
+        accessible_path, redirect_msg = get_user_accessible_path(requested_path)
+        
+        # 如果路径被重定向且原始路径不为空，通知前端
+        if redirect_msg and requested_path and accessible_path != requested_path:
+            logger.info(f"Redirecting user {session['username']} from {requested_path} to {accessible_path}")
+        
+        path = accessible_path
         
         # 构建完整路径
         full_path = safe_path_join(HTML_ROOT_DIR, path)
@@ -878,30 +957,23 @@ def get_file_list():
         for item in os.listdir(full_path):
             item_path = os.path.join(full_path, item)
             
-            # 跳过Python缓存目录
             if item == '__pycache__':
                 continue
                 
             item_stat = os.stat(item_path)
-            
-            # 判断是否为目录
             is_dir = os.path.isdir(item_path)
             
-            # 获取相对路径
             if path:
                 item_rel_path = os.path.join(path, item)
             else:
                 item_rel_path = item
             
-            # 获取文件大小
             size = 0
             if not is_dir:
                 size = item_stat.st_size
             
-            # 获取修改时间
             modified_time = datetime.datetime.fromtimestamp(item_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
             
-            # 添加到列表
             items.append({
                 'name': item,
                 'type': 'dir' if is_dir else 'file',
@@ -913,7 +985,6 @@ def get_file_list():
                 'owner_gid': item_stat.st_gid
             })
         
-        # 按类型和名称排序（目录在前，然后按名称字母顺序）
         items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
         
         return jsonify({
@@ -923,7 +994,8 @@ def get_file_list():
             'items': items,
             'total_items': len(items),
             'total_dirs': sum(1 for item in items if item['type'] == 'dir'),
-            'total_files': sum(1 for item in items if item['type'] == 'file')
+            'total_files': sum(1 for item in items if item['type'] == 'file'),
+            'is_admin': session.get('user_id') == 1
         })
         
     except APIError as e:
@@ -932,8 +1004,7 @@ def get_file_list():
         logger.error(f"Get file list error: {str(e)}")
         return jsonify({'error': f'获取文件列表失败: {str(e)}'}), 500
 
-# ==================== 文件读取和保存视图 ====================
-
+# ==================== 文件读取和保存视图（增加权限检查）====================
 @app.route('/read-file/<path:file_path>', methods=['GET'])
 @login_required
 @filesystem_required
@@ -942,18 +1013,21 @@ def read_file(file_path):
     try:
         full_path = safe_path_join(HTML_ROOT_DIR, file_path)
         
+        # 权限检查
+        has_access, error_msg = check_file_access(full_path, 'read')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
+        
         if not os.path.exists(full_path):
             raise APIError(f'文件不存在: {file_path}', 404)
         
         if not os.path.isfile(full_path):
             raise APIError(f'路径不是文件: {file_path}', 400)
         
-        # 检查文件大小，防止加载过大的文件
         file_size = os.path.getsize(full_path)
-        if file_size > 10 * 1024 * 1024:  # 10MB
+        if file_size > 10 * 1024 * 1024:
             raise APIError('文件过大，无法编辑', 400)
         
-        # 尝试多种编码方式读取文件
         content = None
         encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1', 'cp1252']
         
@@ -968,9 +1042,8 @@ def read_file(file_path):
                 continue
         
         if content is None:
-            # 如果所有文本编码都失败，尝试以二进制方式读取并显示十六进制
             with open(full_path, 'rb') as f:
-                binary_data = f.read(1024)  # 只读取前1KB
+                binary_data = f.read(1024)
                 content = f"二进制文件，无法以文本方式显示。前 {len(binary_data)} 字节的十六进制表示:\n"
                 content += ' '.join(f'{b:02x}' for b in binary_data[:100])
                 if len(binary_data) > 100:
@@ -1017,17 +1090,19 @@ def save_file():
         
         full_path = safe_path_join(HTML_ROOT_DIR, file_path)
         
-        # 确保文件所在的目录存在
+        # 权限检查
+        has_access, error_msg = check_file_access(full_path, 'write')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
+        
         file_dir = os.path.dirname(full_path)
         if file_dir:
             os.makedirs(file_dir, exist_ok=True)
         
-        # 尝试以UTF-8编码写入文件
         try:
             with open(full_path, 'w', encoding='utf-8') as f:
                 f.write(content)
         except UnicodeEncodeError:
-            # 如果UTF-8失败，尝试其他编码
             with open(full_path, 'w', encoding='utf-8-sig') as f:
                 f.write(content)
         
@@ -1077,32 +1152,30 @@ def init_database():
             print("ℹ️  数据库已存在用户，跳过初始化")
             print("="*50 + "\n")
 
-# ==================== 修改后的 serve_html 路由 ====================
+# ==================== 修改后的 serve_html 路由（增加权限控制）====================
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 @filesystem_required
 def serve_html(path=''):
     try:
-        real_path = safe_path_join(HTML_ROOT_DIR, path)
-        
-        # 检查是否在访问 users 文件夹（需要登录）
-        # 判断路径是否以 'users' 开头或就是 'users'
-        is_users_path = False
-        if path:
-            # 标准化路径，移除开头的斜杠
-            normalized_path = path.lstrip('/')
-            # 检查第一级路径是否为 users
-            path_parts = normalized_path.split('/')
-            if path_parts and path_parts[0] == 'users':
-                is_users_path = True
+        # 处理路径并应用权限控制
+        if 'user_id' in session:
+            # 已登录用户，应用路径重定向
+            accessible_path, redirect_msg = get_user_accessible_path(path)
+            if redirect_msg and path and accessible_path != path:
+                # 如果路径被重定向，返回重定向信息让前端处理
+                return jsonify({
+                    'redirect': True,
+                    'redirect_path': accessible_path,
+                    'message': redirect_msg
+                }), 307
+            real_path = safe_path_join(HTML_ROOT_DIR, accessible_path)
         else:
-            # 根目录下检查是否有 users 文件夹需要登录才能访问
-            # 但根目录本身不需要登录，所以这里不处理
-            pass
-        
-        # 如果访问 users 相关路径且用户未登录，返回401
-        if is_users_path and 'user_id' not in session:
-            return jsonify({'error': '请先登录后访问 users 目录', 'require_login': True}), 401
+            # 未登录用户，只能访问登录页面或公开内容
+            # 但 users 目录需要登录
+            if path and path.startswith('users/'):
+                return jsonify({'error': '请先登录后访问 users 目录', 'require_login': True}), 401
+            real_path = safe_path_join(HTML_ROOT_DIR, path)
         
         if not os.path.exists(real_path):
             return "路径不存在", 404
@@ -1111,6 +1184,11 @@ def serve_html(path=''):
             if request.args.get('download') == 'true':
                 if 'user_id' not in session:
                     return jsonify({'error': '请先登录'}), 401
+                
+                # 下载前检查权限
+                has_access, error_msg = check_file_access(real_path, 'download')
+                if not has_access:
+                    return jsonify({'error': error_msg}), 403
                 
                 log_file_operation(
                     user_id=session['user_id'],
@@ -1150,9 +1228,10 @@ def serve_html(path=''):
         
         if not os.path.exists(view_template_path):
             items = []
+            current_path = accessible_path if 'user_id' in session else path
             for item in os.listdir(real_path):
                 item_path = os.path.join(real_path, item)
-                item_rel_path = os.path.join(path, item) if path else item
+                item_rel_path = os.path.join(current_path, item) if current_path else item
                 items.append({
                     'name': item,
                     'type': 'dir' if os.path.isdir(item_path) else 'file',
@@ -1166,10 +1245,11 @@ def serve_html(path=''):
             template_content = f.read()
         
         items = []
+        current_path = accessible_path if 'user_id' in session else path
         for item in os.listdir(real_path):
             item_path = os.path.join(real_path, item)
-            if path:
-                item_rel_path = os.path.join(path, item)
+            if current_path:
+                item_rel_path = os.path.join(current_path, item)
             else:
                 item_rel_path = item
             
@@ -1184,11 +1264,13 @@ def serve_html(path=''):
         items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
         
         initial_data = {
-            'currentPath': path,
+            'currentPath': current_path,
             'files': items,
-            'parentPath': '' if not path else ('/' if '/' not in path else '/'.join(path.split('/')[:-1])),
+            'parentPath': '' if not current_path else ('/' if '/' not in current_path else '/'.join(current_path.split('/')[:-1])),
             'filesystemEnabled': FILESYSTEM_ENABLED,
             'isAuthenticated': 'user_id' in session,
+            'username': session.get('username', ''),
+            'isAdmin': session.get('user_id') == 1 if 'user_id' in session else False,
             'proxyEnabled': PROXY_ENABLED,
             'proxyAllowedTargets': PROXY_ALLOWED_TARGETS,
             'websocketEndpoint': '/socket.io'
@@ -1284,6 +1366,11 @@ def register():
         db.session.add(new_user)
         db.session.commit()
         
+        # 创建用户自己的文件夹
+        user_folder = os.path.join(HTML_ROOT_DIR, 'users', username)
+        os.makedirs(user_folder, exist_ok=True)
+        logger.info(f"Created user folder for {username}: {user_folder}")
+        
         logger.info(f"Admin {session['username']} created new user: {username}")
         
         return jsonify({'status': 'success', 'message': f'用户 {username} 创建成功', 'user': new_user.to_dict()}), 201
@@ -1336,11 +1423,20 @@ def login():
         session['username'] = user.username
         session['is_admin'] = (user.id == 1)
         
+        # 确保用户目录存在
+        if user.id != 1:  # 非 admin 用户
+            user_folder = os.path.join(HTML_ROOT_DIR, 'users', username)
+            os.makedirs(user_folder, exist_ok=True)
+        
+        # 普通用户登录后默认跳转到自己的目录
+        default_path = f"users/{username}" if user.id != 1 else ""
+        
         return jsonify({
             'status': 'success',
             'message': '登录成功',
             'user': user.to_dict(),
             'is_admin': (user.id == 1),
+            'default_path': default_path,
             'filesystem_enabled': FILESYSTEM_ENABLED,
             'proxy_enabled': PROXY_ENABLED
         })
@@ -1363,10 +1459,12 @@ def check_auth():
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
         if user:
+            default_path = f"users/{user.username}" if user.id != 1 else ""
             return jsonify({
                 'authenticated': True,
                 'user': user.to_dict(),
                 'is_admin': (user.id == 1),
+                'default_path': default_path,
                 'filesystem_enabled': FILESYSTEM_ENABLED,
                 'proxy_enabled': PROXY_ENABLED
             })
@@ -1465,6 +1563,16 @@ def delete_user(user_id):
             raise APIError('不能删除当前登录的账户', 403)
         
         user = User.query.get_or_404(user_id)
+        
+        # 删除用户文件夹
+        user_folder = os.path.join(HTML_ROOT_DIR, 'users', user.username)
+        if os.path.exists(user_folder):
+            try:
+                shutil.rmtree(user_folder)
+                logger.info(f"Deleted user folder for {user.username}")
+            except Exception as e:
+                logger.warning(f"Failed to delete user folder {user_folder}: {e}")
+        
         db.session.delete(user)
         db.session.commit()
         
@@ -1496,12 +1604,39 @@ def toggle_user_status(user_id):
         logger.error(f"Toggle user status error: {str(e)}")
         raise APIError(f'操作失败', 500)
 
-# ==================== 文件管理 API ====================
+# ==================== 文件管理 API（增加权限检查）====================
 @app.route('/api/files', methods=['GET'])
 @login_required
 @filesystem_required
 def get_files():
     try:
+        # 普通用户只能看到自己的文件夹
+        if session.get('user_id') != 1:
+            user_folder = os.path.join(HTML_ROOT_DIR, 'users', session['username'])
+            if os.path.exists(user_folder):
+                files = []
+                for item in os.listdir(user_folder):
+                    item_path = os.path.join(user_folder, item)
+                    if os.path.isfile(item_path):
+                        files.append({
+                            'name': item,
+                            'size': os.path.getsize(item_path),
+                            'modified': datetime.datetime.fromtimestamp(os.path.getmtime(item_path)).strftime('%Y-%m-%d %H:%M:%S'),
+                            'type': 'file'
+                        })
+                    elif os.path.isdir(item_path) and item != '__pycache__':
+                        files.append({
+                            'name': item,
+                            'size': 0,
+                            'modified': datetime.datetime.fromtimestamp(os.path.getmtime(item_path)).strftime('%Y-%m-%d %H:%M:%S'),
+                            'type': 'dir'
+                        })
+                files.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
+                return jsonify({'success': True, 'files': files})
+            else:
+                return jsonify({'success': True, 'files': []})
+        
+        # Admin 用户可以看到所有文件
         files = []
         for item in os.listdir(HTML_ROOT_DIR):
             item_path = os.path.join(HTML_ROOT_DIR, item)
@@ -1552,6 +1687,11 @@ def rename_item():
             raise APIError(error_message, 400)
         
         old_full_path = safe_path_join(HTML_ROOT_DIR, old_path)
+        
+        # 权限检查
+        has_access, error_msg = check_file_access(old_full_path, 'rename')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
         
         if not os.path.exists(old_full_path):
             raise APIError(f'文件或目录不存在: {old_path}', 404)
@@ -1623,9 +1763,17 @@ def create_folder():
             if not os.path.isdir(folder_path):
                 raise APIError(f'指定的路径不是目录: {parent_path}', 400)
             
+            # 权限检查
+            has_access, error_msg = check_file_access(folder_path, 'create')
+            if not has_access:
+                return jsonify({'error': error_msg}), 403
+            
             target_path = os.path.join(folder_path, folder_name)
             full_relative_path = os.path.join(parent_path, folder_name)
         else:
+            # 在根目录创建文件夹 - 只有 admin 可以
+            if session.get('user_id') != 1:
+                raise APIError('普通用户不能在根目录创建文件夹', 403)
             target_path = os.path.join(HTML_ROOT_DIR, folder_name)
             full_relative_path = folder_name
         
@@ -1667,6 +1815,11 @@ def delete_folder(folder_path):
     try:
         recursive = request.args.get('recursive', 'false').lower() == 'true'
         target_path = safe_path_join(HTML_ROOT_DIR, folder_path)
+        
+        # 权限检查
+        has_access, error_msg = check_file_access(target_path, 'delete')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
         
         if not os.path.exists(target_path):
             raise APIError(f'文件夹不存在: {folder_path}', 404)
@@ -1716,6 +1869,11 @@ def move_item():
         
         target_full_path = safe_path_join(HTML_ROOT_DIR, target_path)
         
+        # 检查目标目录访问权限
+        has_access, error_msg = check_file_access(target_full_path, 'write')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
+        
         if not os.path.exists(target_full_path):
             raise APIError(f'目标目录不存在: {target_path}', 404)
         
@@ -1727,6 +1885,12 @@ def move_item():
         for source_path in source_paths:
             try:
                 source_full_path = safe_path_join(HTML_ROOT_DIR, source_path)
+                
+                # 检查源文件访问权限
+                has_access, error_msg = check_file_access(source_full_path, 'move')
+                if not has_access:
+                    results['failed'].append({'path': source_path, 'error': error_msg})
+                    continue
                 
                 if not os.path.exists(source_full_path):
                     results['failed'].append({'path': source_path, 'error': '文件或目录不存在'})
@@ -1806,15 +1970,19 @@ def upload_file():
         if not filename:
             raise APIError('无效的文件名', 400)
         
-        # 移除文件类型检查，允许所有文件
-        # 不再检查 allowed_file
-        
         upload_path = request.form.get('path', '')
         
         if upload_path:
             upload_dir = safe_path_join(HTML_ROOT_DIR, upload_path)
+            # 检查上传目录权限
+            has_access, error_msg = check_file_access(upload_dir, 'write')
+            if not has_access:
+                return jsonify({'error': error_msg}), 403
             os.makedirs(upload_dir, exist_ok=True)
         else:
+            # 根目录上传只有 admin 可以
+            if session.get('user_id') != 1:
+                raise APIError('普通用户不能在根目录上传文件', 403)
             upload_dir = HTML_ROOT_DIR
         
         save_path = os.path.join(upload_dir, filename)
@@ -1874,6 +2042,11 @@ def delete_item():
             raise APIError('请提供要删除的文件或目录名', 400)
         
         item_path = safe_path_join(HTML_ROOT_DIR, name)
+        
+        # 权限检查
+        has_access, error_msg = check_file_access(item_path, 'delete')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
         
         if not os.path.exists(item_path):
             raise APIError(f'文件或目录不存在: {name}', 404)
@@ -1941,6 +2114,12 @@ def delete_multiple():
                 
                 item_path = safe_path_join(HTML_ROOT_DIR, name)
                 
+                # 权限检查
+                has_access, error_msg = check_file_access(item_path, 'delete')
+                if not has_access:
+                    results['failed'].append({'name': name, 'error': error_msg})
+                    continue
+                
                 if not os.path.exists(item_path):
                     results['failed'].append({'name': name, 'error': '文件或目录不存在'})
                     continue
@@ -1994,6 +2173,11 @@ def delete_multiple():
 def download_file(filename):
     try:
         file_path = safe_path_join(HTML_ROOT_DIR, filename)
+        
+        # 权限检查
+        has_access, error_msg = check_file_access(file_path, 'download')
+        if not has_access:
+            return jsonify({'error': error_msg}), 403
         
         if not os.path.exists(file_path):
             raise APIError('文件不存在', 404)
@@ -2165,6 +2349,11 @@ if __name__ == '__main__':
         print(f"WebSocket代理: ✅ 支持 (通过 Socket.IO)")
     print("="*60)
     
+    print("\n🔒 权限控制:")
+    print("- 管理员 (admin) 可以操作所有文件")
+    print("- 普通用户只能操作 users/用户名/ 目录下的文件")
+    print("- 创建用户时会自动创建对应的文件夹")
+    print("- 普通用户登录后会自动跳转到自己的文件夹")
     print("\n🔒 安全提示:")
     print("- 请务必在生产环境中修改默认管理员密码")
     print("- 生产环境建议使用 HTTPS")
@@ -2178,7 +2367,6 @@ if __name__ == '__main__':
     if SSL_ENABLED:
         if os.path.exists(SSL_CERT_FILE) and os.path.exists(SSL_KEY_FILE):
             print("使用 HTTPS 协议启动...")
-            # 使用 socketio 启动 HTTPS
             socketio.run(app, host=host, port=port, 
                         ssl_context=(SSL_CERT_FILE, SSL_KEY_FILE), 
                         debug=False,
