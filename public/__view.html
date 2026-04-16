@@ -1460,13 +1460,47 @@
                 `;
             }
             
-            files.forEach((file, index) => {
-                // 构建完整路径 - 关键修复
-                const itemFullPath = file.path || file.name;
-                const jsSafePath = itemFullPath.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                const escapedName = escapeHtml(file.name);
-                // 对文件名进行转义，用于JavaScript字符串
-                const jsSafeName = file.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+files.forEach((file, index) => {
+    // 构建完整路径 - 基于当前路径
+    let itemFullPath;
+    
+    // 获取基础路径
+    let basePath = currentPath;
+    if (!basePath.startsWith('/')) {
+        basePath = '/' + basePath;
+    }
+    if (basePath.endsWith('/')) {
+        basePath = basePath.slice(0, -1);
+    }
+    
+    // 构建完整路径
+    const itemName = file.name;
+    if (basePath === '' || basePath === '/') {
+        itemFullPath = '/' + itemName;
+    } else {
+        itemFullPath = basePath + '/' + itemName;
+    }
+    
+    // 对于普通用户，确保路径正确
+    if (isLoggedIn && currentUser && currentUser.id !== 1) {
+        const userRoot = `/users/${currentUser.username}`;
+        // 如果路径不以 userRoot 开头，说明需要调整
+        if (!itemFullPath.startsWith(userRoot)) {
+            // 提取相对路径部分
+            let relativePath = itemFullPath;
+            if (relativePath.startsWith('/')) {
+                relativePath = relativePath.slice(1);
+            }
+            itemFullPath = userRoot + '/' + relativePath;
+        }
+    }
+    
+    // 标准化路径
+    itemFullPath = itemFullPath.replace(/\/+/g, '/');
+    
+    const jsSafePath = itemFullPath.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const escapedName = escapeHtml(file.name);
+    const jsSafeName = file.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 
                 // 检查是否在剪切列表中
                 const isInCutList = cutItems.some(item => 

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory, jsonify, request, Response, session, send_file, stream_with_context
+from flask import Flask, render_template, send_from_directory, jsonify, request, Response, session, send_file, stream_with_context, redirect
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_limiter import Limiter
@@ -1163,12 +1163,9 @@ def serve_html(path=''):
             # 已登录用户，应用路径重定向
             accessible_path, redirect_msg = get_user_accessible_path(path)
             if redirect_msg and path and accessible_path != path:
-                # 如果路径被重定向，返回重定向信息让前端处理
-                return jsonify({
-                    'redirect': True,
-                    'redirect_path': accessible_path,
-                    'message': redirect_msg
-                }), 307
+                # 直接返回 HTTP 重定向，让浏览器自动跳转
+                return redirect(f'/{accessible_path}')
+            
             real_path = safe_path_join(HTML_ROOT_DIR, accessible_path)
         else:
             # 未登录用户，只能访问登录页面或公开内容
@@ -1622,14 +1619,16 @@ def get_files():
                             'name': item,
                             'size': os.path.getsize(item_path),
                             'modified': datetime.datetime.fromtimestamp(os.path.getmtime(item_path)).strftime('%Y-%m-%d %H:%M:%S'),
-                            'type': 'file'
+                            'type': 'file',
+                            'full_path': f'/users/{session["username"]}/{item}'
                         })
                     elif os.path.isdir(item_path) and item != '__pycache__':
                         files.append({
                             'name': item,
                             'size': 0,
                             'modified': datetime.datetime.fromtimestamp(os.path.getmtime(item_path)).strftime('%Y-%m-%d %H:%M:%S'),
-                            'type': 'dir'
+                            'type': 'dir',
+                            'full_path': f'/users/{session["username"]}/{item}'
                         })
                 files.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
                 return jsonify({'success': True, 'files': files})
