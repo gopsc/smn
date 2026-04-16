@@ -1419,7 +1419,7 @@
             }
         }
     
-        // 显示文件列表
+        // 显示文件列表 - 修复路径问题
         function displayFiles(files) {
             console.log('显示文件列表，登录状态:', isLoggedIn, '文件数量:', files.length);
             
@@ -1451,7 +1451,7 @@
                         ${isLoggedIn ? '<td></td>' : ''}
                         <td>
                             <span class="icon">📁</span>
-                            <a href="${parentPath}" class="dir-name" onclick="navigateTo('${parentPath}'); return false;">..</a>
+                            <a href="javascript:void(0)" class="dir-name" onclick="navigateTo('${parentPath}'); return false;">..</a>
                         </td>
                         <td class="file-size">-</td>
                         <td class="file-modified">-</td>
@@ -1487,13 +1487,13 @@
                 ` : '';
                 
                 if (file.type === 'dir') {
-                    // 目录
+                    // 目录 - 修复链接问题
                     html += `
                         <tr>
                             ${checkboxHtml}
                             <td>
                                 <span class="icon">📁</span>
-                                <a href="${itemFullPath}" class="dir-name" onclick="navigateTo('${itemFullPath}'); return false;">${escapedName}</a>
+                                <a href="javascript:void(0)" class="dir-name" onclick="navigateTo('${jsSafePath}'); return false;">${escapedName}</a>
                             </td>
                             <td class="file-size">-</td>
                             <td class="file-modified">${file.modified || ''}</td>
@@ -1515,7 +1515,7 @@
                             ${checkboxHtml}
                             <td>
                                 <span class="icon">📄</span>
-                                <a href="${itemFullPath}" class="file-name" target="_blank">${escapedName}</a>
+                                <a href="javascript:void(0)" class="file-name" onclick="openFile('${jsSafePath}')">${escapedName}</a>
                             </td>
                             <td class="file-size">${formatFileSize(file.size)}</td>
                             <td class="file-modified">${file.modified || ''}</td>
@@ -1540,6 +1540,11 @@
             updatePasteBarDisplay();
         }
     
+        // 打开文件（新窗口）
+        function openFile(fullPath) {
+            window.open(fullPath, '_blank');
+        }
+    
         // 格式化文件大小
         function formatFileSize(bytes) {
             if (bytes === 0 || !bytes) return '0 Bytes';
@@ -1549,11 +1554,15 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
     
-        // 导航到目录
+        // 导航到目录 - 修复路径处理
         function navigateTo(path) {
+            // 确保路径以 / 开头
             if (!path.startsWith('/')) {
                 path = '/' + path;
             }
+            
+            console.log('导航到:', path);
+            // 使用 window.location.href 进行导航
             window.location.href = path;
         }
     
