@@ -1,0 +1,2686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中国传统色彩</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 18px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+            color: #6c757d;
+            border: none;
+            background: none;
+            position: relative;
+        }
+
+        .tab:hover {
+            color: #495057;
+            background: #e9ecef;
+        }
+
+        .tab.active {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+        }
+
+        .color-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .color-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .color-swatch {
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-info {
+            padding: 12px;
+        }
+
+        .color-name {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #212529;
+            margin-bottom: 6px;
+        }
+
+        .color-code {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-family: monospace;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #palettes-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .palette-section {
+            margin-bottom: 0;
+        }
+
+        .palette-title {
+            font-size: 1rem;
+            color: #999;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .color-palette {
+            display: flex;
+            margin-bottom: 15px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .color-palette:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .palette-color {
+            flex: 1;
+            min-width: 50px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            gap: 2px;
+        }
+
+        .palette-color:first-child {
+            border-radius: 8px 0 0 8px;
+        }
+
+        .palette-color:last-child {
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 中国传统色彩</h1>
+            <p>点击颜色块复制颜色代码</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="traditional">中国传统色</button>
+            <button class="tab" data-tab="chinese">中文色彩</button>
+            <button class="tab" data-tab="palettes">常用色彩搭配</button>
+        </div>
+
+        <div class="tab-content active" id="traditional">
+            <div class="color-grid" id="traditional-grid"></div>
+        </div>
+
+        <div class="tab-content" id="chinese">
+            <div class="color-grid" id="chinese-grid"></div>
+        </div>
+
+        <div class="tab-content" id="palettes">
+            <div style="margin-bottom:20px;"><span style="font-weight:bold;">主色（第一个色）</span>
+品牌核心色、视觉重心色，全站最显眼的颜色。<br>
+<span style="font-weight:bold;">辅助色（第二个色）</span>
+点缀、强调、激活状态，不抢主色风头。<br>
+<span style="font-weight:bold;">中性色（第三个色，多为灰 / 白 / 深灰）</span>
+文字、背景、边框、分割线，负责耐看、清晰。</div>
+            <div id="palettes-container"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">颜色代码已复制到剪贴板</div>
+
+    <script>
+        const traditionalColors = [
+            { name: '蔚蓝', hex: '#70f3ff' },
+            { name: '蓝', hex: '#44cef6' },
+            { name: '碧蓝', hex: '#3eede7' },
+            { name: '石青', hex: '#1685a9' },
+            { name: '靛青', hex: '#177cb0' },
+            { name: '靛蓝', hex: '#065279' },
+            { name: '花青', hex: '#003472' },
+            { name: '宝蓝', hex: '#4b5cc4' },
+            { name: '蓝灰色', hex: '#a1afc9' },
+            { name: '藏青', hex: '#2e4e7e' },
+            { name: '藏蓝', hex: '#3b2e7e' },
+            { name: '黛', hex: '#4a4266' },
+            { name: '黛绿', hex: '#426666' },
+            { name: '黛蓝', hex: '#425066' },
+            { name: '黛紫', hex: '#574266' },
+            { name: '紫色', hex: '#8d4bbb' },
+            { name: '紫酱', hex: '#815463' },
+            { name: '酱紫', hex: '#815476' },
+            { name: '紫檀', hex: '#4c221b' },
+            { name: '绀青', hex: '#003371' },
+            { name: '紫棠', hex: '#56004f' },
+            { name: '青莲', hex: '#801dae' },
+            { name: '群青', hex: '#4c8dae' },
+            { name: '雪青', hex: '#b0a4e3' },
+            { name: '丁香色', hex: '#cca4e3' },
+            { name: '藕色', hex: '#edd1d8' },
+            { name: '藕荷色', hex: '#e4c6d0' },
+            { name: '朱砂', hex: '#ff461f' },
+            { name: '火红', hex: '#ff2d51' },
+            { name: '朱膘', hex: '#f36838' },
+            { name: '妃色', hex: '#ed5736' },
+            { name: '洋红', hex: '#ff4777' },
+            { name: '品红', hex: '#f00056' },
+            { name: '粉红', hex: '#ffb3a7' },
+            { name: '桃红', hex: '#f47983' },
+            { name: '海棠红', hex: '#db5a6b' },
+            { name: '樱桃色', hex: '#c93756' },
+            { name: '酡颜', hex: '#f9906f' },
+            { name: '银红', hex: '#f05654' },
+            { name: '大红', hex: '#ff2121' },
+            { name: '石榴红', hex: '#f20c00' },
+            { name: '绛紫', hex: '#8c4356' },
+            { name: '绯红', hex: '#c83c23' },
+            { name: '胭脂', hex: '#9d2933' },
+            { name: '朱红', hex: '#ff4c00' },
+            { name: '丹', hex: '#ff4e20' },
+            { name: '彤', hex: '#f35336' },
+            { name: '酡红', hex: '#dc3023' },
+            { name: '炎', hex: '#ff3300' },
+            { name: '茜色', hex: '#cb3a56' },
+            { name: '绾', hex: '#a98175' },
+            { name: '檀', hex: '#b36d61' },
+            { name: '嫣红', hex: '#ef7a82' },
+            { name: '枣红', hex: '#c32136' },
+            { name: '殷红', hex: '#be002f' },
+            { name: '赫赤', hex: '#c91f37' },
+            { name: '银朱', hex: '#bf242a' },
+            { name: '赤', hex: '#c3272b' },
+            { name: '栗色', hex: '#60281e' },
+            { name: '玄色', hex: '#622a1d' },
+            { name: '松花色', hex: '#bce672' },
+            { name: '柳黄', hex: '#c9dd22' },
+            { name: '嫩绿', hex: '#bddd22' },
+            { name: '柳绿', hex: '#afdd22' },
+            { name: '葱黄', hex: '#a3d900' },
+            { name: '葱绿', hex: '#9ed900' },
+            { name: '豆绿', hex: '#9ed048' },
+            { name: '豆青', hex: '#96ce54' },
+            { name: '油绿', hex: '#00bc12' },
+            { name: '葱倩', hex: '#0eb83a' },
+            { name: '葱青', hex: '#0eb83a' },
+            { name: '青葱', hex: '#0aa344' },
+            { name: '石绿', hex: '#16a951' },
+            { name: '松柏绿', hex: '#21a675' },
+            { name: '松花绿', hex: '#057748' },
+            { name: '绿沈', hex: '#0c8918' },
+            { name: '绿色', hex: '#00e500' },
+            { name: '草绿', hex: '#40de5a' },
+            { name: '青翠', hex: '#00e079' },
+            { name: '青色', hex: '#00e09e' },
+            { name: '翡翠色', hex: '#3de1ad' },
+            { name: '碧绿', hex: '#2add9c' },
+            { name: '玉色', hex: '#2edfa3' },
+            { name: '缥', hex: '#7fecad' },
+            { name: '艾绿', hex: '#a4e2c6' },
+            { name: '碧色', hex: '#1bd1a5' },
+            { name: '青碧', hex: '#48c0a3' },
+            { name: '铜绿', hex: '#549688' },
+            { name: '竹青', hex: '#789262' },
+            { name: '墨灰', hex: '#758a99' },
+            { name: '墨色', hex: '#50616d' },
+            { name: '鸦青', hex: '#424c50' },
+            { name: '黯', hex: '#41555d' },
+            { name: '樱草色', hex: '#eaff56' },
+            { name: '鹅黄', hex: '#fff143' },
+            { name: '鸭黄', hex: '#faff72' },
+            { name: '杏黄', hex: '#ffa631' },
+            { name: '橙黄', hex: '#ffa400' },
+            { name: '橙色', hex: '#fa8c35' },
+            { name: '杏红', hex: '#ff8c31' },
+            { name: '橘黄', hex: '#ff8936' },
+            { name: '橘红', hex: '#ff7500' },
+            { name: '藤黄', hex: '#ffb61e' },
+            { name: '姜黄', hex: '#ffc773' },
+            { name: '雌黄', hex: '#ffc64b' },
+            { name: '赤金', hex: '#f2be45' },
+            { name: '缃色', hex: '#f0c239' },
+            { name: '雄黄', hex: '#e9bb1d' },
+            { name: '秋香色', hex: '#d9b611' },
+            { name: '金色', hex: '#eacd76' },
+            { name: '牙色', hex: '#eedeb0' },
+            { name: '枯黄', hex: '#d3b17d' },
+            { name: '黄栌', hex: '#e29c45' },
+            { name: '乌金', hex: '#a78e44' },
+            { name: '昏黄', hex: '#c89b40' },
+            { name: '棕黄', hex: '#ae7000' },
+            { name: '琥珀', hex: '#ca6924' },
+            { name: '棕色', hex: '#b25d25' },
+            { name: '茶色', hex: '#b35c44' },
+            { name: '棕红', hex: '#9b4400' },
+            { name: '赭', hex: '#9c5333' },
+            { name: '驼色', hex: '#a88462' },
+            { name: '秋色', hex: '#896c39' },
+            { name: '棕绿', hex: '#827100' },
+            { name: '褐色', hex: '#6e511e' },
+            { name: '棕黑', hex: '#7c4b00' },
+            { name: '赭色', hex: '#955539' },
+            { name: '赭石', hex: '#845a33' },
+            { name: '精白', hex: '#ffffff' },
+            { name: '银白', hex: '#e9e7ef' },
+            { name: '铅白', hex: '#f0f0f4' },
+            { name: '霜色', hex: '#e9f1f6' },
+            { name: '雪白', hex: '#f0fcff' },
+            { name: '莹白', hex: '#e3f9fd' },
+            { name: '月白', hex: '#d6ecf0' },
+            { name: '象牙白', hex: '#fffbf0' },
+            { name: '缟', hex: '#f2ecde' },
+            { name: '鱼肚白', hex: '#fcefe8' },
+            { name: '白粉', hex: '#fff2df' },
+            { name: '荼白', hex: '#f3f9f1' },
+            { name: '鸭卵青', hex: '#e0eee8' },
+            { name: '素', hex: '#e0f0e9' },
+            { name: '青白', hex: '#c0ebd7' },
+            { name: '蟹壳青', hex: '#bbcdc5' },
+            { name: '花白', hex: '#c2ccd0' },
+            { name: '老银', hex: '#bacac6' },
+            { name: '灰色', hex: '#808080' },
+            { name: '苍色', hex: '#75878a' },
+            { name: '水色', hex: '#88ada6' },
+            { name: '黝', hex: '#6b6882' },
+            { name: '乌色', hex: '#725e82' },
+            { name: '玄青', hex: '#3d3b4f' },
+            { name: '乌黑', hex: '#392f41' },
+            { name: '黎', hex: '#75664d' },
+            { name: '黧', hex: '#5d513c' },
+            { name: '黝黑', hex: '#665757' },
+            { name: '缁色', hex: '#493131' },
+            { name: '煤黑', hex: '#312520' },
+            { name: '漆黑', hex: '#161823' },
+            { name: '黑色', hex: '#000000' }
+        ];
+
+        const chineseColors = [
+            { name: '鸨色', hex: '#f7acbc' },
+            { name: '踯躅色', hex: '#ef5b9c' },
+            { name: '桜色', hex: '#feeeed' },
+            { name: '蔷薇色', hex: '#f05b72' },
+            { name: '韩红', hex: '#f15b6c' },
+            { name: '珊瑚色', hex: '#f8aba6' },
+            { name: '红梅色', hex: '#f69c9f' },
+            { name: '桃色', hex: '#f58f98' },
+            { name: '薄柿', hex: '#ca8687' },
+            { name: '薄红梅', hex: '#f391a9' },
+            { name: '曙色', hex: '#bd6758' },
+            { name: '红色', hex: '#d71345' },
+            { name: '赤丹', hex: '#d64f44' },
+            { name: '红赤', hex: '#d93a49' },
+            { name: '臙脂色', hex: '#b3424a' },
+            { name: '真赭', hex: '#c76968' },
+            { name: '今様色', hex: '#bb505d' },
+            { name: '梅染', hex: '#987165' },
+            { name: '退红色', hex: '#ac6767' },
+            { name: '苏芳', hex: '#973c3f' },
+            { name: '茜色', hex: '#b22c46' },
+            { name: '红', hex: '#a7324a' },
+            { name: '银朱', hex: '#aa363d' },
+            { name: '赤', hex: '#ed1941' },
+            { name: '朱色', hex: '#f26522' },
+            { name: '洗朱', hex: '#d2553d' },
+            { name: '红桦色', hex: '#b4534b' },
+            { name: '红绯', hex: '#ef4136' },
+            { name: '桦色', hex: '#c63c26' },
+            { name: '铅丹色', hex: '#f3715c' },
+            { name: '赭', hex: '#a7573b' },
+            { name: '绯色', hex: '#aa2116' },
+            { name: '丹', hex: '#b64533' },
+            { name: '土', hex: '#b54334' },
+            { name: '焦香', hex: '#853f04' },
+            { name: '真红', hex: '#840228' },
+            { name: '绯', hex: '#7a1723' },
+            { name: '红海老茶', hex: '#a03939' },
+            { name: '浅苏芳', hex: '#8a2e3b' },
+            { name: '鸢色', hex: '#8e453f' },
+            { name: '小豆色', hex: '#8f4b4a' },
+            { name: '弁柄色', hex: '#892f1b' },
+            { name: '栗梅', hex: '#6b2c25' },
+            { name: '海老茶', hex: '#733a31' },
+            { name: '深绯', hex: '#54211d' },
+            { name: '赤铜色', hex: '#78331e' },
+            { name: '赤褐色', hex: '#53261f' },
+            { name: '金赤', hex: '#f15a22' },
+            { name: '赤茶', hex: '#b4533c' },
+            { name: '赤锖色', hex: '#84331f' },
+            { name: '黄丹', hex: '#f47a55' },
+            { name: '赤橙', hex: '#f15a22' },
+            { name: '柿色', hex: '#f3704b' },
+            { name: '肉桂色', hex: '#da765b' },
+            { name: '炼瓦色', hex: '#ae5039' },
+            { name: '锖色', hex: '#6a3427' },
+            { name: '桧皮色', hex: '#8f4b38' },
+            { name: '栗色', hex: '#8e3e1f' },
+            { name: '黄赤', hex: '#f36c21' },
+            { name: '代赭', hex: '#b4532a' },
+            { name: '骆驼色', hex: '#b7704f' },
+            { name: '黄茶', hex: '#de773f' },
+            { name: '洗柿', hex: '#c99979' },
+            { name: '赤白橡', hex: '#deab8a' },
+            { name: '肌色', hex: '#fedcbd' },
+            { name: '橙色', hex: '#f47920' },
+            { name: '灰茶', hex: '#905a3d' },
+            { name: '茶色', hex: '#8f4b2e' },
+            { name: '桦茶色', hex: '#87481f' },
+            { name: '枯茶', hex: '#5f3c23' },
+            { name: '焦茶', hex: '#6b473c' },
+            { name: '柑子色', hex: '#faa755' },
+            { name: '杏色', hex: '#fab27b' },
+            { name: '蜜柑色', hex: '#f58220' },
+            { name: '褐色', hex: '#843900' },
+            { name: '路考茶', hex: '#905d1d' },
+            { name: '饴色', hex: '#8a5d19' },
+            { name: '丁子色', hex: '#8c531b' },
+            { name: '丁子茶', hex: '#826858' },
+            { name: '黄栌', hex: '#64492b' },
+            { name: '土器色', hex: '#ae6642' },
+            { name: '黄枯茶', hex: '#56452d' },
+            { name: '狐色', hex: '#96582a' },
+            { name: '黄橡', hex: '#705628' },
+            { name: '银煤竹', hex: '#4a3113' },
+            { name: '涅色', hex: '#412f1f' },
+            { name: '胡桃色', hex: '#845538' },
+            { name: '香色', hex: '#8e7437' },
+            { name: '国防色', hex: '#69541b' },
+            { name: '练色', hex: '#d5c59f' },
+            { name: '肉色', hex: '#cd9a5b' },
+            { name: '人色', hex: '#cd9a5b' },
+            { name: '土色', hex: '#b36d41' },
+            { name: '小麦色', hex: '#df9464' },
+            { name: '琥珀色', hex: '#b76f40' },
+            { name: '木兰色', hex: '#ad8b3d' },
+            { name: '栀子色', hex: '#dea32c' },
+            { name: '朽叶', hex: '#d1923f' },
+            { name: '萱草色', hex: '#c88400' },
+            { name: '黄金', hex: '#c37e00' },
+            { name: '金色', hex: '#c37e00' },
+            { name: '金茶', hex: '#e0861a' },
+            { name: '卵色', hex: '#ffce7b' },
+            { name: '山吹色', hex: '#fcaf17' },
+            { name: '黄土色', hex: '#ba8448' },
+            { name: '朽叶色', hex: '#896a45' },
+            { name: '空五倍子色', hex: '#76624c' },
+            { name: '莺茶', hex: '#6d5826' },
+            { name: '向日葵色', hex: '#ffc20e' },
+            { name: '郁金色', hex: '#fdb933' },
+            { name: '砂色', hex: '#d3c6a6' },
+            { name: '芥子色', hex: '#c7a252' },
+            { name: '淡黄', hex: '#dec674' },
+            { name: '亜麻色', hex: '#b69968' },
+            { name: '枯色', hex: '#c1a173' },
+            { name: '鸟子色', hex: '#dbce8f' },
+            { name: '黄色', hex: '#ffd400' },
+            { name: '蒲公英色', hex: '#ffd400' },
+            { name: '中黄', hex: '#ffe600' },
+            { name: '刈安色', hex: '#f0dc70' },
+            { name: '黄檗色', hex: '#fcf16e' },
+            { name: '緑黄色', hex: '#decb00' },
+            { name: '鶸色', hex: '#cbc547' },
+            { name: '海松色', hex: '#6e6b41' },
+            { name: '鶸茶', hex: '#596032' },
+            { name: '山鸠色', hex: '#525f42' },
+            { name: '生壁色', hex: '#5f5d46' },
+            { name: '油色', hex: '#817936' },
+            { name: '伽罗色', hex: '#7f7522' },
+            { name: '青丹', hex: '#80752c' },
+            { name: '莺色', hex: '#87843b' },
+            { name: '利久色', hex: '#726930' },
+            { name: '媚茶', hex: '#454926' },
+            { name: '蓝海松茶', hex: '#2e3a1f' },
+            { name: '青钝', hex: '#4d4f36' },
+            { name: '抹茶色', hex: '#b7ba6b' },
+            { name: '黄緑', hex: '#b2d235' },
+            { name: '苔色', hex: '#5c7a29' },
+            { name: '若草色', hex: '#bed742' },
+            { name: '若緑', hex: '#7fb80e' },
+            { name: '萌黄', hex: '#a3cf62' },
+            { name: '苗色', hex: '#769149' },
+            { name: '草色', hex: '#6d8346' },
+            { name: '柳色', hex: '#78a355' },
+            { name: '松叶色', hex: '#74905d' },
+            { name: '白緑', hex: '#cde6c7' },
+            { name: '薄緑', hex: '#1d953f' },
+            { name: '千草色', hex: '#77ac98' },
+            { name: '青緑', hex: '#007d65' },
+            { name: '浅緑', hex: '#84bf96' },
+            { name: '绿', hex: '#45b97c' },
+            { name: '木贼色', hex: '#367459' },
+            { name: '常盘色', hex: '#007947' },
+            { name: '緑青色', hex: '#40835e' },
+            { name: '千歳緑', hex: '#2b6447' },
+            { name: '深緑', hex: '#005831' },
+            { name: '萌葱色', hex: '#006c54' },
+            { name: '青白橡', hex: '#375830' },
+            { name: '革色', hex: '#274d3d' },
+            { name: '麹尘', hex: '#375830' },
+            { name: '仙斎茶', hex: '#27342b' },
+            { name: '若竹色', hex: '#65c294' },
+            { name: '青磁色', hex: '#73b9a2' },
+            { name: '青竹色', hex: '#72baa7' },
+            { name: '铁色', hex: '#005344' },
+            { name: '锖鼠', hex: '#122e29' },
+            { name: '铁御纳戸', hex: '#293047' },
+            { name: '锖浅葱', hex: '#508a88' },
+            { name: '水浅葱', hex: '#70a19f' },
+            { name: '新桥色', hex: '#50b7c1' },
+            { name: '浅葱色', hex: '#00a6ac' },
+            { name: '白群', hex: '#78cdd1' },
+            { name: '御纳戸色', hex: '#008792' },
+            { name: '瓮覗', hex: '#94d6da' },
+            { name: '水色', hex: '#afdfe4' },
+            { name: '蓝鼠', hex: '#5e7c85' },
+            { name: '秘色', hex: '#76becc' },
+            { name: '空色', hex: '#90d7ec' },
+            { name: '青', hex: '#009ad6' },
+            { name: '蓝色', hex: '#145b7d' },
+            { name: '浓蓝', hex: '#11264f' },
+            { name: '勿忘草色', hex: '#7bbfea' },
+            { name: '露草色', hex: '#33a3dc' },
+            { name: '缥色', hex: '#228fbd' },
+            { name: '浅缥', hex: '#2468a2' },
+            { name: '薄缥', hex: '#2570a1' },
+            { name: '薄花色', hex: '#2585a6' },
+            { name: '绀青', hex: '#1b315e' },
+            { name: '绀桔梗', hex: '#444693' },
+            { name: '花色', hex: '#2b4490' },
+            { name: '瑠璃色', hex: '#2a5caa' },
+            { name: '琉璃绀', hex: '#224b8f' },
+            { name: '绀色', hex: '#003a6c' },
+            { name: '青蓝', hex: '#102b6a' },
+            { name: '杜若色', hex: '#426ab3' },
+            { name: '胜色', hex: '#46485f' },
+            { name: '群青色', hex: '#4e72b8' },
+            { name: '铁绀', hex: '#181d4b' },
+            { name: '蓝铁', hex: '#1a2933' },
+            { name: '青褐', hex: '#121a2a' },
+            { name: '褐返', hex: '#0c212b' },
+            { name: '藤纳戸', hex: '#6a6da9' },
+            { name: '桔梗色', hex: '#585eaa' },
+            { name: '绀蓝', hex: '#494e8f' },
+            { name: '藤色', hex: '#afb4db' },
+            { name: '藤紫', hex: '#9b95c9' },
+            { name: '青紫', hex: '#6950a1' },
+            { name: '菫色', hex: '#6f60aa' },
+            { name: '鸠羽色', hex: '#867892' },
+            { name: '薄色', hex: '#918597' },
+            { name: '薄鼠', hex: '#6f6d85' },
+            { name: '鸠羽鼠', hex: '#594c6d' },
+            { name: '菖蒲色', hex: '#694d9f' },
+            { name: '江戸紫', hex: '#6f599c' },
+            { name: '紫', hex: '#8552a1' },
+            { name: '灭紫', hex: '#543044' },
+            { name: '葡萄鼠', hex: '#63434f' },
+            { name: '古代紫', hex: '#7d5886' },
+            { name: '暗红', hex: '#401c44' },
+            { name: '葡萄', hex: '#472d56' },
+            { name: '茄子绀', hex: '#45224a' },
+            { name: '紫绀', hex: '#411445' },
+            { name: '浓色', hex: '#4b2f3d' },
+            { name: '二蓝', hex: '#402e4c' },
+            { name: '牡丹色', hex: '#ea66a6' },
+            { name: '赤紫', hex: '#f173ac' },
+            { name: '白', hex: '#fffffb' },
+            { name: '胡粉色', hex: '#fffef9' },
+            { name: '生成色', hex: '#f6f5ec' },
+            { name: '灰白', hex: '#d9d6c3' },
+            { name: '石竹色', hex: '#d1c7b7' },
+            { name: '象牙色', hex: '#f2eada' },
+            { name: '乳白色', hex: '#d3d7d4' },
+            { name: '薄钝', hex: '#999d9c' },
+            { name: '银鼠', hex: '#a1a3a6' },
+            { name: '茶鼠', hex: '#9d9087' },
+            { name: '鼠色', hex: '#8a8c8e' },
+            { name: '薄墨色', hex: '#74787c' },
+            { name: '利休鼠', hex: '#7c8577' },
+            { name: '铅色', hex: '#72777b' },
+            { name: '灰色', hex: '#77787b' },
+            { name: '钝色', hex: '#4f5555' },
+            { name: '煤竹色', hex: '#6c4c49' },
+            { name: '黒茶', hex: '#563624' },
+            { name: '黒橡', hex: '#3e4145' },
+            { name: '浓鼠', hex: '#3c3645' },
+            { name: '墨', hex: '#464547' },
+            { name: '黒', hex: '#130c0e' },
+            { name: '黒铁', hex: '#281f1d' },
+            { name: '蝋色', hex: '#2f271d' },
+            { name: '紫黒', hex: '#1d1626' }
+        ];
+
+        const palettes = [
+    {
+        title: '色彩搭配方案1',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案2',
+        colors: ['#99CCCC', '#FFCC99', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案3',
+        colors: ['#FF9999', '#996699', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案4',
+        colors: ['#CC9999', '#FFFFCC', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案5',
+        colors: ['#FFCCCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案6',
+        colors: ['#0099CC', '#CCCCCC', '#FF6666']
+    },
+    {
+        title: '色彩搭配方案7',
+        colors: ['#FF9966', '#FF6666', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案8',
+        colors: ['#CC9966', '#666666', '#CC9999']
+    },
+    {
+        title: '色彩搭配方案9',
+        colors: ['#FF6666', '#FFFF66', '#99CC66']
+    },
+    {
+        title: '色彩搭配方案10',
+        colors: ['#CC3333', '#CCCCCC', '#003366']
+    },
+    {
+        title: '色彩搭配方案11',
+        colors: ['#993333', '#CCCC00', '#663366']
+    },
+    {
+        title: '色彩搭配方案12',
+        colors: ['#CCCC99', '#666666', '#CC9999']
+    },
+    {
+        title: '色彩搭配方案13',
+        colors: ['#FF6666', '#FFFF00', '#0066CC']
+    },
+    {
+        title: '色彩搭配方案14',
+        colors: ['#CC0033', '#333333', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案15',
+        colors: ['#336633', '#990033', '#FFCC99']
+    },
+    {
+        title: '色彩搭配方案16',
+        colors: ['#993333', '#CC9966', '#003300']
+    },
+    {
+        title: '色彩搭配方案17',
+        colors: ['#FF0033', '#333399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案18',
+        colors: ['#CC0033', '#000000', '#003399']
+    },
+    {
+        title: '色彩搭配方案19',
+        colors: ['#000000', '#99CC00', '#CC0033']
+    },
+    {
+        title: '色彩搭配方案20',
+        colors: ['#999933', '#993333', '#333300']
+    },
+    {
+        title: '色彩搭配方案21',
+        colors: ['#FFCC99', '#FFFF99', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案22',
+        colors: ['#FFCC99', '#CCFF99', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案23',
+        colors: ['#FFCC99', '#FFFFCC', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案24',
+        colors: ['#FF9966', '#FFFFCC', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案25',
+        colors: ['#FF9900', '#FFFFCC', '#336699']
+    },
+    {
+        title: '色彩搭配方案26',
+        colors: ['#CCCC33', '#FFFF99', '#CC9933']
+    },
+    {
+        title: '色彩搭配方案27',
+        colors: ['#996600', '#FFCC33', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案28',
+        colors: ['#FFFFCC', '#CC9933', '#336666']
+    },
+    {
+        title: '色彩搭配方案29',
+        colors: ['#FF9900', '#FFFF00', '#0099CC']
+    },
+    {
+        title: '色彩搭配方案30',
+        colors: ['#99CC33', '#FF9900', '#FFCC00']
+    },
+    {
+        title: '色彩搭配方案31',
+        colors: ['#FF9933', '#99CC33', '#CC6699']
+    },
+    {
+        title: '色彩搭配方案32',
+        colors: ['#FF9933', '#FFFF00', '#3366CC']
+    },
+    {
+        title: '色彩搭配方案33',
+        colors: ['#FF9933', '#FFFFCC', '#009966']
+    },
+    {
+        title: '色彩搭配方案34',
+        colors: ['#FF6600', '#FFFF66', '#009966']
+    },
+    {
+        title: '色彩搭配方案35',
+        colors: ['#990033', '#CCFF66', '#FF9900']
+    },
+    {
+        title: '色彩搭配方案36',
+        colors: ['#FF9966', '#996600', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案37',
+        colors: ['#CC6600', '#999999', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案38',
+        colors: ['#CC6600', '#CCCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案39',
+        colors: ['#000000', '#FF9933', '#999966']
+    },
+    {
+        title: '色彩搭配方案40',
+        colors: ['#663300', '#FF9933', '#FFFF66']
+    },
+    {
+        title: '色彩搭配方案41',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案42',
+        colors: ['#FFFF00', '#FFFFFF', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案43',
+        colors: ['#99CCFF', '#FFCC33', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案44',
+        colors: ['#FFFF33', '#99CCFF', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案45',
+        colors: ['#FFFF00', '#FFFFFF', '#9933FF']
+    },
+    {
+        title: '色彩搭配方案46',
+        colors: ['#99CCFF', '#FFCC33', '#FFFF33']
+    },
+    {
+        title: '色彩搭配方案47',
+        colors: ['#FFCC00', '#66CC00', '#FFFF99']
+    },
+    {
+        title: '色彩搭配方案48',
+        colors: ['#FF9900', '#FFFF00', '#0099CC']
+    },
+    {
+        title: '色彩搭配方案49',
+        colors: ['#FFCC00', '#0000CC', '#FFFF99']
+    },
+    {
+        title: '色彩搭配方案50',
+        colors: ['#CC9999', '#FFFFCC', '#6666CC']
+    },
+    {
+        title: '色彩搭配方案51',
+        colors: ['#999933', '#FFFFCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案52',
+        colors: ['#CCCC00', '#666600', '#FFFF66']
+    },
+    {
+        title: '色彩搭配方案53',
+        colors: ['#FF9966', '#FFFFCC', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案54',
+        colors: ['#FFCC33', '#FFFFCC', '#999966']
+    },
+    {
+        title: '色彩搭配方案55',
+        colors: ['#FFCC99', '#FF6666', '#FFFF66']
+    },
+    {
+        title: '色彩搭配方案56',
+        colors: ['#FFCC99', '#999966', '#FFFF00']
+    },
+    {
+        title: '色彩搭配方案57',
+        colors: ['#FFFF99', '#99CC99', '#666600']
+    },
+    {
+        title: '色彩搭配方案58',
+        colors: ['#999966', '#FFFF99', '#333333']
+    },
+    {
+        title: '色彩搭配方案59',
+        colors: ['#006633', '#333300', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案60',
+        colors: ['#006633', '#663300', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案61',
+        colors: ['#33CC33', '#6666CC', '#FFFFFF']
+    },
+    {
+        title: '色彩搭配方案62',
+        colors: ['#CCCC33', '#FFFFFF', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案63',
+        colors: ['#FFCC99', '#CCFF99', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案64',
+        colors: ['#CCCC00', '#999966', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案65',
+        colors: ['#CCCC33', '#FFFFFF', '#336699']
+    },
+    {
+        title: '色彩搭配方案66',
+        colors: ['#CCCC33', '#999999', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案67',
+        colors: ['#00CC00', '#0066CC', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案68',
+        colors: ['#99CC33', '#FF9900', '#FFCC00']
+    },
+    {
+        title: '色彩搭配方案69',
+        colors: ['#99CC33', '#CCCCFF', '#663300']
+    },
+    {
+        title: '色彩搭配方案70',
+        colors: ['#CCCC33', '#993399', '#000000']
+    },
+    {
+        title: '色彩搭配方案71',
+        colors: ['#CC6600', '#999999', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案72',
+        colors: ['#CC9933', '#FFFF99', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案73',
+        colors: ['#669933', '#CCCC33', '#663300']
+    },
+    {
+        title: '色彩搭配方案74',
+        colors: ['#99CC33', '#CCCCCC', '#000000']
+    },
+    {
+        title: '色彩搭配方案75',
+        colors: ['#CC6600', '#CCCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案76',
+        colors: ['#666600', '#CCCC66', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案77',
+        colors: ['#333366', '#99CC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案78',
+        colors: ['#666666', '#99CC33', '#003366']
+    },
+    {
+        title: '色彩搭配方案79',
+        colors: ['#003333', '#99CC33', '#999999']
+    },
+    {
+        title: '色彩搭配方案80',
+        colors: ['#996633', '#FFFF99', '#99CC66']
+    },
+    {
+        title: '色彩搭配方案81',
+        colors: ['#009966', '#FFFFFF', '#FFFF00']
+    },
+    {
+        title: '色彩搭配方案82',
+        colors: ['#339933', '#FFFFFF', '#9933CC']
+    },
+    {
+        title: '色彩搭配方案83',
+        colors: ['#339933', '#FFFFFF', '#000000']
+    },
+    {
+        title: '色彩搭配方案84',
+        colors: ['#339933', '#99CC00', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案85',
+        colors: ['#FFFFCC', '#CCCC66', '#336666']
+    },
+    {
+        title: '色彩搭配方案86',
+        colors: ['#99CC33', '#FFFF66', '#336600']
+    },
+    {
+        title: '色彩搭配方案87',
+        colors: ['#339933', '#CC9900', '#666666']
+    },
+    {
+        title: '色彩搭配方案88',
+        colors: ['#339966', '#CCCCCC', '#003366']
+    },
+    {
+        title: '色彩搭配方案89',
+        colors: ['#669933', '#CCCCCC', '#000000']
+    },
+    {
+        title: '色彩搭配方案90',
+        colors: ['#339933', '#CCCCCC', '#6699CC']
+    },
+    {
+        title: '色彩搭配方案91',
+        colors: ['#006633', '#CCCC33', '#CC9933']
+    },
+    {
+        title: '色彩搭配方案92',
+        colors: ['#339933', '#666633', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案93',
+        colors: ['#339933', '#FFCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案94',
+        colors: ['#006633', '#669933', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案95',
+        colors: ['#336666', '#996633', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案96',
+        colors: ['#003300', '#669933', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案97',
+        colors: ['#006633', '#990033', '#FF9900']
+    },
+    {
+        title: '色彩搭配方案98',
+        colors: ['#006633', '#333300', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案99',
+        colors: ['#006633', '#663300', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案100',
+        colors: ['#993333', '#CC9966', '#003300']
+    },
+    {
+        title: '色彩搭配方案101',
+        colors: ['#CCFF99', '#FFFFFF', '#66CCCC']
+    },
+    {
+        title: '色彩搭配方案102',
+        colors: ['#339999', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案103',
+        colors: ['#66CC99', '#FFFFFF', '#666699']
+    },
+    {
+        title: '色彩搭配方案104',
+        colors: ['#009999', '#66CCCC', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案105',
+        colors: ['#66CCCC', '#CCFF66', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案106',
+        colors: ['#339999', '#FFFF00', '#336699']
+    },
+    {
+        title: '色彩搭配方案107',
+        colors: ['#CC9933', '#339999', '#FFCC33']
+    },
+    {
+        title: '色彩搭配方案108',
+        colors: ['#FFCC00', '#009999', '#CC3333']
+    },
+    {
+        title: '色彩搭配方案109',
+        colors: ['#669999', '#CCCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案110',
+        colors: ['#339999', '#CCCCCC', '#000000']
+    },
+    {
+        title: '色彩搭配方案111',
+        colors: ['#339999', '#666699', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案112',
+        colors: ['#003333', '#99CC99', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案113',
+        colors: ['#669999', '#CCFFCC', '#996699']
+    },
+    {
+        title: '色彩搭配方案114',
+        colors: ['#996699', '#CCCC99', '#669999']
+    },
+    {
+        title: '色彩搭配方案115',
+        colors: ['#999966', '#CCCC99', '#339999']
+    },
+    {
+        title: '色彩搭配方案116',
+        colors: ['#336666', '#669999', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案117',
+        colors: ['#999999', '#003366', '#669999']
+    },
+    {
+        title: '色彩搭配方案118',
+        colors: ['#663333', '#339999', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案119',
+        colors: ['#333333', '#339999', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案120',
+        colors: ['#336666', '#3399CC', '#666666']
+    },
+    {
+        title: '色彩搭配方案121',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案122',
+        colors: ['#99CCCC', '#FFFFFF', '#3399CC']
+    },
+    {
+        title: '色彩搭配方案123',
+        colors: ['#CCFFCC', '#99CCCC', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案124',
+        colors: ['#CCCCFF', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案125',
+        colors: ['#FFCC99', '#FFFFCC', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案126',
+        colors: ['#336699', '#FFFFFF', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案127',
+        colors: ['#99CCCC', '#FFFFFF', '#CCFF99']
+    },
+    {
+        title: '色彩搭配方案128',
+        colors: ['#CCCCFF', '#FFFFCC', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案129',
+        colors: ['#99CCCC', '#FFFFFF', '#336699']
+    },
+    {
+        title: '色彩搭配方案130',
+        colors: ['#99CCFF', '#CCFFFF', '#6699CC']
+    },
+    {
+        title: '色彩搭配方案131',
+        colors: ['#99CC33', '#FFFFFF', '#3399CC']
+    },
+    {
+        title: '色彩搭配方案132',
+        colors: ['#0099CC', '#FFFFCC', '#666699']
+    },
+    {
+        title: '色彩搭配方案133',
+        colors: ['#CCCCCC', '#003366', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案134',
+        colors: ['#0099CC', '#FFFFFF', '#666666']
+    },
+    {
+        title: '色彩搭配方案135',
+        colors: ['#CCCCCC', '#6699CC', '#666666']
+    },
+    {
+        title: '色彩搭配方案136',
+        colors: ['#336699', '#CCCC99', '#003366']
+    },
+    {
+        title: '色彩搭配方案137',
+        colors: ['#3399CC', '#003366', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案138',
+        colors: ['#6699CC', '#006699', '#000000']
+    },
+    {
+        title: '色彩搭配方案139',
+        colors: ['#003366', '#CCCCCC', '#006699']
+    },
+    {
+        title: '色彩搭配方案140',
+        colors: ['#999933', '#336699', '#333333']
+    },
+    {
+        title: '色彩搭配方案141',
+        colors: ['#CCFFFF', '#FFFFFF', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案142',
+        colors: ['#CCCCCC', '#FFFFFF', '#666699']
+    },
+    {
+        title: '色彩搭配方案143',
+        colors: ['#99CCFF', '#FFFFFF', '#333399']
+    },
+    {
+        title: '色彩搭配方案144',
+        colors: ['#6666CC', '#FFFFFF', '#FF9999']
+    },
+    {
+        title: '色彩搭配方案145',
+        colors: ['#9999FF', '#FFCC33', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案146',
+        colors: ['#0099CC', '#FFFFCC', '#666699']
+    },
+    {
+        title: '色彩搭配方案147',
+        colors: ['#0000FF', '#6699FF', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案148',
+        colors: ['#6666FF', '#66CCFF', '#CCFF66']
+    },
+    {
+        title: '色彩搭配方案149',
+        colors: ['#669999', '#FFFFCC', '#6666CC']
+    },
+    {
+        title: '色彩搭配方案150',
+        colors: ['#9999CC', '#FF9999', '#666699']
+    },
+    {
+        title: '色彩搭配方案151',
+        colors: ['#003399', '#FFCCCC', '#6699CC']
+    },
+    {
+        title: '色彩搭配方案152',
+        colors: ['#CC6666', '#333399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案153',
+        colors: ['#000066', '#6666FF', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案154',
+        colors: ['#003399', '#CCFF99', '#333333']
+    },
+    {
+        title: '色彩搭配方案155',
+        colors: ['#333366', '#CC0033', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案156',
+        colors: ['#336699', '#CCCC66', '#333300']
+    },
+    {
+        title: '色彩搭配方案157',
+        colors: ['#003399', '#FFFF99', '#000000']
+    },
+    {
+        title: '色彩搭配方案158',
+        colors: ['#990066', '#CCCC33', '#003399']
+    },
+    {
+        title: '色彩搭配方案159',
+        colors: ['#CC3333', '#000000', '#003399']
+    },
+    {
+        title: '色彩搭配方案160',
+        colors: ['#333366', '#999966', '#333333']
+    },
+    {
+        title: '色彩搭配方案161',
+        colors: ['#FFFFCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案162',
+        colors: ['#9999CC', '#99CC99', '#FFFFFF']
+    },
+    {
+        title: '色彩搭配方案163',
+        colors: ['#FFCCCC', '#CCCCFF', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案164',
+        colors: ['#9999CC', '#FFFFCC', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案165',
+        colors: ['#FFCCCC', '#FF99CC', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案166',
+        colors: ['#660066', '#FFFFFF', '#663333']
+    },
+    {
+        title: '色彩搭配方案167',
+        colors: ['#CCCC99', '#333333', '#9966CC']
+    },
+    {
+        title: '色彩搭配方案168',
+        colors: ['#CCCC00', '#FF9966', '#663399']
+    },
+    {
+        title: '色彩搭配方案169',
+        colors: ['#996699', '#FFCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案170',
+        colors: ['#996666', '#CC99CC', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案171',
+        colors: ['#FFCC99', '#FF9933', '#663366']
+    },
+    {
+        title: '色彩搭配方案172',
+        colors: ['#333399', '#CCCCFF', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案173',
+        colors: ['#663366', '#CCCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案174',
+        colors: ['#996699', '#9999CC', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案175',
+        colors: ['#CC9966', '#999999', '#663366']
+    },
+    {
+        title: '色彩搭配方案176',
+        colors: ['#330033', '#666666', '#669999']
+    },
+    {
+        title: '色彩搭配方案177',
+        colors: ['#CCCCCC', '#999999', '#663366']
+    },
+    {
+        title: '色彩搭配方案178',
+        colors: ['#FF33CC', '#CCCC99', '#663366']
+    },
+    {
+        title: '色彩搭配方案179',
+        colors: ['#663366', '#999999', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案180',
+        colors: ['#999966', '#993333', '#330033']
+    },
+    {
+        title: '色彩搭配方案181',
+        colors: ['#FFCCCC', '#FFFFFF', '#99CC00']
+    },
+    {
+        title: '色彩搭配方案182',
+        colors: ['#FF99CC', '#FFFFFF', '#993366']
+    },
+    {
+        title: '色彩搭配方案183',
+        colors: ['#66CC99', '#FFFFFF', '#CC6699']
+    },
+    {
+        title: '色彩搭配方案184',
+        colors: ['#CC9999', '#FFCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案185',
+        colors: ['#FFCCCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案186',
+        colors: ['#FFFF99', '#993399', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案187',
+        colors: ['#66CCCC', '#CCFF66', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案188',
+        colors: ['#FF99CC', '#003399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案189',
+        colors: ['#FFCCCC', '#FF99CC', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案190',
+        colors: ['#FF9999', '#FFCCCC', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案191',
+        colors: ['#669966', '#CC6699', '#FFCCFF']
+    },
+    {
+        title: '色彩搭配方案192',
+        colors: ['#CCCCCC', '#CC99CC', '#CC3399']
+    },
+    {
+        title: '色彩搭配方案193',
+        colors: ['#CC3399', '#FFCC99', '#FF6666']
+    },
+    {
+        title: '色彩搭配方案194',
+        colors: ['#FF3399', '#CCCC99', '#663366']
+    },
+    {
+        title: '色彩搭配方案195',
+        colors: ['#663366', '#FFFFCC', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案196',
+        colors: ['#663366', '#CCCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案197',
+        colors: ['#990066', '#FFCC00', '#CC0033']
+    },
+    {
+        title: '色彩搭配方案198',
+        colors: ['#990066', '#CCCCCC', '#006699']
+    },
+    {
+        title: '色彩搭配方案199',
+        colors: ['#999900', '#990033', '#000000']
+    },
+    {
+        title: '色彩搭配方案200',
+        colors: ['#990066', '#000000', '#009966']
+    },
+    {
+        title: '色彩搭配方案201',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案202',
+        colors: ['#99CCCC', '#FFCC99', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案203',
+        colors: ['#FF9999', '#996699', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案204',
+        colors: ['#CC9999', '#FFFFCC', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案205',
+        colors: ['#FFCCCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案206',
+        colors: ['#0099CC', '#CCCCCC', '#FF6666']
+    },
+    {
+        title: '色彩搭配方案207',
+        colors: ['#FF9966', '#FF6666', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案208',
+        colors: ['#CC9966', '#666666', '#CC9999']
+    },
+    {
+        title: '色彩搭配方案209',
+        colors: ['#FF6666', '#FFFF66', '#99CC66']
+    },
+    {
+        title: '色彩搭配方案210',
+        colors: ['#CC3333', '#CCCCCC', '#003366']
+    },
+    {
+        title: '色彩搭配方案211',
+        colors: ['#993333', '#CCCC00', '#663366']
+    },
+    {
+        title: '色彩搭配方案212',
+        colors: ['#CCCC99', '#666666', '#CC9999']
+    },
+    {
+        title: '色彩搭配方案213',
+        colors: ['#FF6666', '#FFFF00', '#0066CC']
+    },
+    {
+        title: '色彩搭配方案214',
+        colors: ['#CC0033', '#333333', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案215',
+        colors: ['#336633', '#990033', '#FFCC99']
+    },
+    {
+        title: '色彩搭配方案216',
+        colors: ['#993333', '#CC9966', '#003300']
+    },
+    {
+        title: '色彩搭配方案217',
+        colors: ['#FF0033', '#333399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案218',
+        colors: ['#CC0033', '#000000', '#003399']
+    },
+    {
+        title: '色彩搭配方案219',
+        colors: ['#000000', '#99CC00', '#CC0033']
+    },
+    {
+        title: '色彩搭配方案220',
+        colors: ['#999933', '#993333', '#333300']
+    },
+    {
+        title: '色彩搭配方案221',
+        colors: ['#FFCC99', '#FFFF99', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案222',
+        colors: ['#FFCC99', '#CCFF99', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案223',
+        colors: ['#FFCC99', '#FFFFCC', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案224',
+        colors: ['#FF9966', '#FFFFCC', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案225',
+        colors: ['#FF9900', '#FFFFCC', '#336699']
+    },
+    {
+        title: '色彩搭配方案226',
+        colors: ['#CCCC33', '#FFFF99', '#CC9933']
+    },
+    {
+        title: '色彩搭配方案227',
+        colors: ['#996600', '#FFCC33', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案228',
+        colors: ['#FFFFCC', '#CC9933', '#336666']
+    },
+    {
+        title: '色彩搭配方案229',
+        colors: ['#FF9900', '#FFFF00', '#0099CC']
+    },
+    {
+        title: '色彩搭配方案230',
+        colors: ['#99CC33', '#FF9900', '#FFCC00']
+    },
+    {
+        title: '色彩搭配方案231',
+        colors: ['#FF9933', '#99CC33', '#CC6699']
+    },
+    {
+        title: '色彩搭配方案232',
+        colors: ['#FF9933', '#FFFF00', '#3366CC']
+    },
+    {
+        title: '色彩搭配方案233',
+        colors: ['#FF9933', '#FFFFCC', '#009966']
+    },
+    {
+        title: '色彩搭配方案234',
+        colors: ['#FF6600', '#FFFF66', '#009966']
+    },
+    {
+        title: '色彩搭配方案235',
+        colors: ['#990033', '#CCFF66', '#FF9900']
+    },
+    {
+        title: '色彩搭配方案236',
+        colors: ['#FF9966', '#996600', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案237',
+        colors: ['#CC6600', '#999999', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案238',
+        colors: ['#CC6600', '#CCCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案239',
+        colors: ['#000000', '#FF9933', '#999966']
+    },
+    {
+        title: '色彩搭配方案240',
+        colors: ['#663300', '#FF9933', '#FFFF66']
+    },
+    {
+        title: '色彩搭配方案241',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案242',
+        colors: ['#FFFF00', '#FFFFFF', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案243',
+        colors: ['#99CCFF', '#FFCC33', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案244',
+        colors: ['#FFFF33', '#99CCFF', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案245',
+        colors: ['#FFFF00', '#FFFFFF', '#9933FF']
+    },
+    {
+        title: '色彩搭配方案246',
+        colors: ['#99CCFF', '#FFCC33', '#FFFF33']
+    },
+    {
+        title: '色彩搭配方案247',
+        colors: ['#FFCC00', '#66CC00', '#FFFF99']
+    },
+    {
+        title: '色彩搭配方案248',
+        colors: ['#FF9900', '#FFFF00', '#0099CC']
+    },
+    {
+        title: '色彩搭配方案249',
+        colors: ['#FFCC00', '#0000CC', '#FFFF99']
+    },
+    {
+        title: '色彩搭配方案250',
+        colors: ['#CC9999', '#FFFFCC', '#6666CC']
+    },
+    {
+        title: '色彩搭配方案251',
+        colors: ['#999933', '#FFFFCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案252',
+        colors: ['#CCCC00', '#666600', '#FFFF66']
+    },
+    {
+        title: '色彩搭配方案253',
+        colors: ['#FF9966', '#FFFFCC', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案254',
+        colors: ['#FFCC33', '#FFFFCC', '#999966']
+    },
+    {
+        title: '色彩搭配方案255',
+        colors: ['#FFCC99', '#FF6666', '#FFFF66']
+    },
+    {
+        title: '色彩搭配方案256',
+        colors: ['#FFCC99', '#999966', '#FFFF00']
+    },
+    {
+        title: '色彩搭配方案257',
+        colors: ['#FFFF99', '#99CC99', '#666600']
+    },
+    {
+        title: '色彩搭配方案258',
+        colors: ['#999966', '#FFFF99', '#333333']
+    },
+    {
+        title: '色彩搭配方案259',
+        colors: ['#006633', '#333300', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案260',
+        colors: ['#006633', '#663300', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案261',
+        colors: ['#33CC33', '#6666CC', '#FFFFFF']
+    },
+    {
+        title: '色彩搭配方案262',
+        colors: ['#CCCC33', '#FFFFFF', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案263',
+        colors: ['#FFCC99', '#CCFF99', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案264',
+        colors: ['#CCCC00', '#999966', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案265',
+        colors: ['#CCCC33', '#FFFFFF', '#336699']
+    },
+    {
+        title: '色彩搭配方案266',
+        colors: ['#CCCC33', '#999999', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案267',
+        colors: ['#00CC00', '#0066CC', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案268',
+        colors: ['#99CC33', '#FF9900', '#FFCC00']
+    },
+    {
+        title: '色彩搭配方案269',
+        colors: ['#99CC33', '#CCCCFF', '#663300']
+    },
+    {
+        title: '色彩搭配方案270',
+        colors: ['#CCCC33', '#993399', '#000000']
+    },
+    {
+        title: '色彩搭配方案271',
+        colors: ['#CC6600', '#999999', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案272',
+        colors: ['#CC9933', '#FFFF99', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案273',
+        colors: ['#669933', '#CCCC33', '#663300']
+    },
+    {
+        title: '色彩搭配方案274',
+        colors: ['#99CC33', '#CCCCCC', '#000000']
+    },
+    {
+        title: '色彩搭配方案275',
+        colors: ['#CC6600', '#CCCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案276',
+        colors: ['#666600', '#CCCC66', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案277',
+        colors: ['#333366', '#99CC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案278',
+        colors: ['#666666', '#99CC33', '#003366']
+    },
+    {
+        title: '色彩搭配方案279',
+        colors: ['#003333', '#99CC33', '#999999']
+    },
+    {
+        title: '色彩搭配方案280',
+        colors: ['#996633', '#FFFF99', '#99CC66']
+    },
+    {
+        title: '色彩搭配方案281',
+        colors: ['#009966', '#FFFFFF', '#FFFF00']
+    },
+    {
+        title: '色彩搭配方案282',
+        colors: ['#339933', '#FFFFFF', '#9933CC']
+    },
+    {
+        title: '色彩搭配方案283',
+        colors: ['#339933', '#FFFFFF', '#000000']
+    },
+    {
+        title: '色彩搭配方案284',
+        colors: ['#339933', '#99CC00', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案285',
+        colors: ['#FFFFCC', '#CCCC66', '#336666']
+    },
+    {
+        title: '色彩搭配方案286',
+        colors: ['#99CC33', '#FFFF66', '#336600']
+    },
+    {
+        title: '色彩搭配方案287',
+        colors: ['#339933', '#CC9900', '#666666']
+    },
+    {
+        title: '色彩搭配方案288',
+        colors: ['#339966', '#CCCCCC', '#003366']
+    },
+    {
+        title: '色彩搭配方案289',
+        colors: ['#669933', '#CCCCCC', '#000000']
+    },
+    {
+        title: '色彩搭配方案290',
+        colors: ['#339933', '#CCCCCC', '#6699CC']
+    },
+    {
+        title: '色彩搭配方案291',
+        colors: ['#006633', '#CCCC33', '#CC9933']
+    },
+    {
+        title: '色彩搭配方案292',
+        colors: ['#339933', '#666633', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案293',
+        colors: ['#339933', '#FFCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案294',
+        colors: ['#006633', '#669933', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案295',
+        colors: ['#336666', '#996633', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案296',
+        colors: ['#003300', '#669933', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案297',
+        colors: ['#006633', '#990033', '#FF9900']
+    },
+    {
+        title: '色彩搭配方案298',
+        colors: ['#006633', '#333300', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案299',
+        colors: ['#006633', '#663300', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案300',
+        colors: ['#993333', '#CC9966', '#003300']
+    },
+    {
+        title: '色彩搭配方案301',
+        colors: ['#CCFF99', '#FFFFFF', '#66CCCC']
+    },
+    {
+        title: '色彩搭配方案302',
+        colors: ['#339999', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案303',
+        colors: ['#66CC99', '#FFFFFF', '#666699']
+    },
+    {
+        title: '色彩搭配方案304',
+        colors: ['#009999', '#66CCCC', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案305',
+        colors: ['#66CCCC', '#CCFF66', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案306',
+        colors: ['#339999', '#FFFF00', '#336699']
+    },
+    {
+        title: '色彩搭配方案307',
+        colors: ['#CC9933', '#339999', '#FFCC33']
+    },
+    {
+        title: '色彩搭配方案308',
+        colors: ['#FFCC00', '#009999', '#CC3333']
+    },
+    {
+        title: '色彩搭配方案309',
+        colors: ['#669999', '#CCCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案310',
+        colors: ['#339999', '#CCCCCC', '#000000']
+    },
+    {
+        title: '色彩搭配方案311',
+        colors: ['#339999', '#666699', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案312',
+        colors: ['#003333', '#99CC99', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案313',
+        colors: ['#669999', '#CCFFCC', '#996699']
+    },
+    {
+        title: '色彩搭配方案314',
+        colors: ['#996699', '#CCCC99', '#669999']
+    },
+    {
+        title: '色彩搭配方案315',
+        colors: ['#999966', '#CCCC99', '#339999']
+    },
+    {
+        title: '色彩搭配方案316',
+        colors: ['#336666', '#669999', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案317',
+        colors: ['#999999', '#003366', '#669999']
+    },
+    {
+        title: '色彩搭配方案318',
+        colors: ['#663333', '#339999', '#CCCC66']
+    },
+    {
+        title: '色彩搭配方案319',
+        colors: ['#333333', '#339999', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案320',
+        colors: ['#336666', '#3399CC', '#666666']
+    },
+    {
+        title: '色彩搭配方案321',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案322',
+        colors: ['#99CCCC', '#FFFFFF', '#3399CC']
+    },
+    {
+        title: '色彩搭配方案323',
+        colors: ['#CCFFCC', '#99CCCC', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案324',
+        colors: ['#CCCCFF', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案325',
+        colors: ['#FFCC99', '#FFFFCC', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案326',
+        colors: ['#336699', '#FFFFFF', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案327',
+        colors: ['#99CCCC', '#FFFFFF', '#CCFF99']
+    },
+    {
+        title: '色彩搭配方案328',
+        colors: ['#CCCCFF', '#FFFFCC', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案329',
+        colors: ['#99CCCC', '#FFFFFF', '#336699']
+    },
+    {
+        title: '色彩搭配方案330',
+        colors: ['#99CCFF', '#CCFFFF', '#6699CC']
+    },
+    {
+        title: '色彩搭配方案331',
+        colors: ['#99CC33', '#FFFFFF', '#3399CC']
+    },
+    {
+        title: '色彩搭配方案332',
+        colors: ['#0099CC', '#FFFFCC', '#666699']
+    },
+    {
+        title: '色彩搭配方案333',
+        colors: ['#CCCCCC', '#003366', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案334',
+        colors: ['#0099CC', '#FFFFFF', '#666666']
+    },
+    {
+        title: '色彩搭配方案335',
+        colors: ['#CCCCCC', '#6699CC', '#666666']
+    },
+    {
+        title: '色彩搭配方案336',
+        colors: ['#336699', '#CCCC99', '#003366']
+    },
+    {
+        title: '色彩搭配方案337',
+        colors: ['#3399CC', '#003366', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案338',
+        colors: ['#6699CC', '#006699', '#000000']
+    },
+    {
+        title: '色彩搭配方案339',
+        colors: ['#003366', '#CCCCCC', '#006699']
+    },
+    {
+        title: '色彩搭配方案340',
+        colors: ['#999933', '#336699', '#333333']
+    },
+    {
+        title: '色彩搭配方案341',
+        colors: ['#CCFFFF', '#FFFFFF', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案342',
+        colors: ['#CCCCCC', '#FFFFFF', '#666699']
+    },
+    {
+        title: '色彩搭配方案343',
+        colors: ['#99CCFF', '#FFFFFF', '#333399']
+    },
+    {
+        title: '色彩搭配方案344',
+        colors: ['#6666CC', '#FFFFFF', '#FF9999']
+    },
+    {
+        title: '色彩搭配方案345',
+        colors: ['#9999FF', '#FFCC33', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案346',
+        colors: ['#0099CC', '#FFFFCC', '#666699']
+    },
+    {
+        title: '色彩搭配方案347',
+        colors: ['#0000FF', '#6699FF', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案348',
+        colors: ['#6666FF', '#66CCFF', '#CCFF66']
+    },
+    {
+        title: '色彩搭配方案349',
+        colors: ['#669999', '#FFFFCC', '#6666CC']
+    },
+    {
+        title: '色彩搭配方案350',
+        colors: ['#9999CC', '#FF9999', '#666699']
+    },
+    {
+        title: '色彩搭配方案351',
+        colors: ['#003399', '#FFCCCC', '#6699CC']
+    },
+    {
+        title: '色彩搭配方案352',
+        colors: ['#CC6666', '#333399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案353',
+        colors: ['#000066', '#6666FF', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案354',
+        colors: ['#003399', '#CCFF99', '#333333']
+    },
+    {
+        title: '色彩搭配方案355',
+        colors: ['#333366', '#CC0033', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案356',
+        colors: ['#336699', '#CCCC66', '#333300']
+    },
+    {
+        title: '色彩搭配方案357',
+        colors: ['#003399', '#FFFF99', '#000000']
+    },
+    {
+        title: '色彩搭配方案358',
+        colors: ['#990066', '#CCCC33', '#003399']
+    },
+    {
+        title: '色彩搭配方案359',
+        colors: ['#CC3333', '#000000', '#003399']
+    },
+    {
+        title: '色彩搭配方案360',
+        colors: ['#333366', '#999966', '#333333']
+    },
+    {
+        title: '色彩搭配方案361',
+        colors: ['#FFFFCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案362',
+        colors: ['#9999CC', '#99CC99', '#FFFFFF']
+    },
+    {
+        title: '色彩搭配方案363',
+        colors: ['#FFCCCC', '#CCCCFF', '#CCCC99']
+    },
+    {
+        title: '色彩搭配方案364',
+        colors: ['#9999CC', '#FFFFCC', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案365',
+        colors: ['#FFCCCC', '#FF99CC', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案366',
+        colors: ['#660066', '#FFFFFF', '#663333']
+    },
+    {
+        title: '色彩搭配方案367',
+        colors: ['#CCCC99', '#333333', '#9966CC']
+    },
+    {
+        title: '色彩搭配方案368',
+        colors: ['#CCCC00', '#FF9966', '#663399']
+    },
+    {
+        title: '色彩搭配方案369',
+        colors: ['#996699', '#FFCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案370',
+        colors: ['#996666', '#CC99CC', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案371',
+        colors: ['#FFCC99', '#FF9933', '#663366']
+    },
+    {
+        title: '色彩搭配方案372',
+        colors: ['#333399', '#CCCCFF', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案373',
+        colors: ['#663366', '#CCCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案374',
+        colors: ['#996699', '#9999CC', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案375',
+        colors: ['#CC9966', '#999999', '#663366']
+    },
+    {
+        title: '色彩搭配方案376',
+        colors: ['#330033', '#666666', '#669999']
+    },
+    {
+        title: '色彩搭配方案377',
+        colors: ['#CCCCCC', '#999999', '#663366']
+    },
+    {
+        title: '色彩搭配方案378',
+        colors: ['#FF33CC', '#CCCC99', '#663366']
+    },
+    {
+        title: '色彩搭配方案379',
+        colors: ['#663366', '#999999', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案380',
+        colors: ['#999966', '#993333', '#330033']
+    },
+    {
+        title: '色彩搭配方案381',
+        colors: ['#FFCCCC', '#FFFFFF', '#99CC00']
+    },
+    {
+        title: '色彩搭配方案382',
+        colors: ['#FF99CC', '#FFFFFF', '#993366']
+    },
+    {
+        title: '色彩搭配方案383',
+        colors: ['#66CC99', '#FFFFFF', '#CC6699']
+    },
+    {
+        title: '色彩搭配方案384',
+        colors: ['#CC9999', '#FFCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案385',
+        colors: ['#FFCCCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案386',
+        colors: ['#FFFF99', '#993399', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案387',
+        colors: ['#66CCCC', '#CCFF66', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案388',
+        colors: ['#FF99CC', '#003399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案389',
+        colors: ['#FFCCCC', '#FF99CC', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案390',
+        colors: ['#FF9999', '#FFCCCC', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案391',
+        colors: ['#669966', '#CC6699', '#FFCCFF']
+    },
+    {
+        title: '色彩搭配方案392',
+        colors: ['#CCCCCC', '#CC99CC', '#CC3399']
+    },
+    {
+        title: '色彩搭配方案393',
+        colors: ['#CC3399', '#FFCC99', '#FF6666']
+    },
+    {
+        title: '色彩搭配方案394',
+        colors: ['#FF3399', '#CCCC99', '#663366']
+    },
+    {
+        title: '色彩搭配方案395',
+        colors: ['#663366', '#FFFFCC', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案396',
+        colors: ['#663366', '#CCCCCC', '#CC99CC']
+    },
+    {
+        title: '色彩搭配方案397',
+        colors: ['#990066', '#FFCC00', '#CC0033']
+    },
+    {
+        title: '色彩搭配方案398',
+        colors: ['#990066', '#CCCCCC', '#006699']
+    },
+    {
+        title: '色彩搭配方案399',
+        colors: ['#999900', '#990033', '#000000']
+    },
+    {
+        title: '色彩搭配方案400',
+        colors: ['#990066', '#000000', '#009966']
+    },
+    {
+        title: '色彩搭配方案401',
+        colors: ['#FFFFCC', '#CCFFFF', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案402',
+        colors: ['#FFCCCC', '#FFFF99', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案403',
+        colors: ['#FF9966', '#FF6666', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案404',
+        colors: ['#FFCC99', '#CCFF99', '#CCCCCC']
+    },
+    {
+        title: '色彩搭配方案405',
+        colors: ['#FFCCCC', '#CCCCFF', '#CCFFCC']
+    },
+    {
+        title: '色彩搭配方案406',
+        colors: ['#CCFFFF', '#CCCCCC', '#CCFF99']
+    },
+    {
+        title: '色彩搭配方案407',
+        colors: ['#FFCCCC', '#FFFFFF', '#99CC99']
+    },
+    {
+        title: '色彩搭配方案408',
+        colors: ['#99CCCC', '#FFCC99', '#FFCCCC']
+    },
+    {
+        title: '色彩搭配方案409',
+        colors: ['#CCCCFF', '#FFCCCC', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案410',
+        colors: ['#FFCC99', '#FFFFCC', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案411',
+        colors: ['#CCFF99', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案412',
+        colors: ['#99CCCC', '#FFFFFF', '#CCFF99']
+    },
+    {
+        title: '色彩搭配方案413',
+        colors: ['#CCFFCC', '#FFFFFF', '#66CCCC']
+    },
+    {
+        title: '色彩搭配方案414',
+        colors: ['#CCCCFF', '#FFFFFF', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案415',
+        colors: ['#CCFFCC', '#99CCCC', '#FFFFCC']
+    },
+    {
+        title: '色彩搭配方案416',
+        colors: ['#CCFFFF', '#FFFFFF', '#CCCCFF']
+    },
+    {
+        title: '色彩搭配方案417',
+        colors: ['#CCFFFF', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案418',
+        colors: ['#66CCFF', '#FFFFFF', '#CCFFFF']
+    },
+    {
+        title: '色彩搭配方案419',
+        colors: ['#6699CC', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案420',
+        colors: ['#CCCCFF', '#FFFFFF', '#99CCFF']
+    },
+    {
+        title: '色彩搭配方案421',
+        colors: ['#66CCCC', '#CCFF66', '#FF99CC']
+    },
+    {
+        title: '色彩搭配方案422',
+        colors: ['#FF9999', '#FFFFFF', '#FFCC99']
+    },
+    {
+        title: '色彩搭配方案423',
+        colors: ['#FF6666', '#FFFF66', '#99CC66']
+    },
+    {
+        title: '色彩搭配方案424',
+        colors: ['#666699', '#FFFFFF', '#FF9999']
+    },
+    {
+        title: '色彩搭配方案425',
+        colors: ['#99CC33', '#FF9900', '#FFCC00']
+    },
+    {
+        title: '色彩搭配方案426',
+        colors: ['#FF0033', '#FFFFFF', '#FF9966']
+    },
+    {
+        title: '色彩搭配方案427',
+        colors: ['#FF9900', '#CCFF00', '#CC3399']
+    },
+    {
+        title: '色彩搭配方案428',
+        colors: ['#99CC33', '#FFFFFF', '#FF6600']
+    },
+    {
+        title: '色彩搭配方案429',
+        colors: ['#993366', '#CCCC33', '#666633']
+    },
+    {
+        title: '色彩搭配方案430',
+        colors: ['#66CCCC', '#FFFFFF', '#666699']
+    },
+    {
+        title: '色彩搭配方案431',
+        colors: ['#CC9999', '#FFFF99', '#666699']
+    },
+    {
+        title: '色彩搭配方案432',
+        colors: ['#FF9900', '#FFFF00', '#0099CC']
+    },
+    {
+        title: '色彩搭配方案433',
+        colors: ['#CCCC99', '#CC3399', '#99CC00']
+    },
+    {
+        title: '色彩搭配方案434',
+        colors: ['#FF6666', '#FFFF00', '#3399CC']
+    },
+    {
+        title: '色彩搭配方案435',
+        colors: ['#CC6600', '#999999', '#CCCC33']
+    },
+    {
+        title: '色彩搭配方案436',
+        colors: ['#FF9933', '#FFFFCC', '#009933']
+    },
+    {
+        title: '色彩搭配方案437',
+        colors: ['#0099CC', '#CCCCCC', '#FF6666']
+    },
+    {
+        title: '色彩搭配方案438',
+        colors: ['#FF6600', '#FFFF66', '#009966']
+    },
+    {
+        title: '色彩搭配方案439',
+        colors: ['#CC6633', '#FFCC99', '#CC6600']
+    },
+    {
+        title: '色彩搭配方案440',
+        colors: ['#CC0066', '#009999', '#FFCC33']
+    },
+    {
+        title: '色彩搭配方案441',
+        colors: ['#FF6666', '#FFFF00', '#006699']
+    },
+    {
+        title: '色彩搭配方案442',
+        colors: ['#FF9966', '#FFFFFF', '#0066CC']
+    },
+    {
+        title: '色彩搭配方案443',
+        colors: ['#339933', '#FFCC33', '#336699']
+    },
+    {
+        title: '色彩搭配方案444',
+        colors: ['#FF9900', '#FFFFCC', '#336699']
+    },
+    {
+        title: '色彩搭配方案445',
+        colors: ['#CC6600', '#CCCC44', '#336699']
+    },
+    {
+        title: '色彩搭配方案446',
+        colors: ['#99CC33', '#FFFFFF', '#0099CC']
+    },
+    {
+        title: '色彩搭配方案447',
+        colors: ['#99CC33', '#FF6666', '#336699']
+    },
+    {
+        title: '色彩搭配方案448',
+        colors: ['#336699', '#FFFFFF', '#99CCCC']
+    },
+    {
+        title: '色彩搭配方案449',
+        colors: ['#FF0033', '#333399', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案450',
+        colors: ['#33CC99', '#FFFF00', '#336699']
+    },
+    {
+        title: '色彩搭配方案451',
+        colors: ['#990066', '#FFCC00', '#CC0033']
+    },
+    {
+        title: '色彩搭配方案452',
+        colors: ['#FFCC33', '#333399', '#FF0033']
+    },
+    {
+        title: '色彩搭配方案453',
+        colors: ['#666699', '#FFFF00', '#FF0033']
+    },
+    {
+        title: '色彩搭配方案454',
+        colors: ['#FF0033', '#006699', '#FFFF33']
+    },
+    {
+        title: '色彩搭配方案455',
+        colors: ['#FFCC00', '#009999', '#CC3366']
+    },
+    {
+        title: '色彩搭配方案456',
+        colors: ['#FF0033', '#CCCC00', '#006699']
+    },
+    {
+        title: '色彩搭配方案457',
+        colors: ['#CCCC00', '#FF9933', '#663399']
+    },
+    {
+        title: '色彩搭配方案458',
+        colors: ['#FF9933', '#FFFF00', '#336699']
+    },
+    {
+        title: '色彩搭配方案459',
+        colors: ['#CC3333', '#FFCCCC', '#99CC00']
+    },
+    {
+        title: '色彩搭配方案460',
+        colors: ['#003399', '#FFFF00', '#FF6600']
+    },
+    {
+        title: '色彩搭配方案461',
+        colors: ['#990066', '#FFFF00', '#003399']
+    },
+    {
+        title: '色彩搭配方案462',
+        colors: ['#CC0033', '#000000', '#003399']
+    },
+    {
+        title: '色彩搭配方案463',
+        colors: ['#003399', '#FFFF00', '#F00000']
+    },
+    {
+        title: '色彩搭配方案464',
+        colors: ['#CC3333', '#CCCCCC', '#003366']
+    },
+    {
+        title: '色彩搭配方案465',
+        colors: ['#CC0033', '#333333', '#CCCC00']
+    },
+    {
+        title: '色彩搭配方案466',
+        colors: ['#000000', '#99CC00', '#CC0033']
+    },
+    {
+        title: '色彩搭配方案467',
+        colors: ['#FF0033', '#333333', '#FF9900']
+    },
+    {
+        title: '色彩搭配方案468',
+        colors: ['#990066', '#000000', '#009966']
+    },
+    {
+        title: '色彩搭配方案469',
+        colors: ['#666666', '#FF6600', '#333333']
+    },
+    {
+        title: '色彩搭配方案470',
+        colors: ['#993333', '#CCCC00', '#663366']
+    },
+];
+
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast();
+            }).catch(err => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast();
+            });
+        }
+
+        function createColorCard(color) {
+            const card = document.createElement('div');
+            card.className = 'color-card';
+            card.onclick = () => copyToClipboard(color.hex);
+            
+            const textColor = getContrastColor(color.hex);
+            
+            card.innerHTML = `
+                <div class="color-swatch" style="background: ${color.hex}; color: ${textColor};">
+                    ${color.hex}
+                </div>
+                <div class="color-info">
+                    <div class="color-name">${color.name}</div>
+                    <div class="color-code">${color.hex}</div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function getContrastColor(hex) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? '#000000' : '#ffffff';
+        }
+
+        function createPalette(palette) {
+            const section = document.createElement('div');
+            section.className = 'palette-section';
+            
+            const title = document.createElement('h3');
+            title.className = 'palette-title';
+            title.textContent = palette.title;
+            title.style.fontSize = '1rem';
+            title.style.marginBottom = '10px';
+            
+            const paletteDiv = document.createElement('div');
+            paletteDiv.className = 'color-palette';
+            // 点击整个颜色块区域复制三种颜色
+            paletteDiv.onclick = () => {
+                const allColors = palette.colors.join(' ');
+                copyToClipboard(allColors);
+            };
+            
+            // 按主色、辅色、中性色的顺序设置颜色
+            const colorRoles = ['主', '辅', '中'];
+            palette.colors.forEach((color, index) => {
+                const colorDiv = document.createElement('div');
+                colorDiv.className = 'palette-color';
+                colorDiv.style.background = color;
+                colorDiv.style.color = getContrastColor(color);
+                // 添加颜色代码
+                const codeSpan = document.createElement('span');
+                codeSpan.style.fontSize = '0.7rem';
+                codeSpan.textContent = color;
+                colorDiv.appendChild(codeSpan);
+                // 添加颜色角色提示
+                const roleSpan = document.createElement('span');
+                roleSpan.style.fontSize = '0.6rem';
+                roleSpan.style.opacity = '0.8';
+                roleSpan.textContent = colorRoles[index];
+                colorDiv.appendChild(roleSpan);
+                paletteDiv.appendChild(colorDiv);
+            });
+            
+            section.appendChild(title);
+            section.appendChild(paletteDiv);
+            
+            return section;
+        }
+
+        function init() {
+            const traditionalGrid = document.getElementById('traditional-grid');
+            traditionalColors.forEach(color => {
+                traditionalGrid.appendChild(createColorCard(color));
+            });
+            
+            const chineseGrid = document.getElementById('chinese-grid');
+            chineseColors.forEach(color => {
+                chineseGrid.appendChild(createColorCard(color));
+            });
+            
+            const palettesContainer = document.getElementById('palettes-container');
+            palettes.forEach(palette => {
+                palettesContainer.appendChild(createPalette(palette));
+            });
+        }
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const tabId = tab.dataset.tab;
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        init();
+    </script>
+</body>
+</html>
