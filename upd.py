@@ -247,11 +247,19 @@ def check_file_access(file_path, operation='read'):
 def get_user_accessible_path(requested_path):
     """
     获取用户可访问的路径
+    未登录: 返回请求路径（但限制不能访问 users 目录）
     Admin: 返回原始路径
     普通用户: 确保路径在 users/用户名/ 下
     """
+    # 未登录用户：可以访问根目录，但不能访问 users 目录
     if 'user_id' not in session:
-        return None, "未登录"
+        if requested_path and requested_path.strip():
+            # 标准化路径
+            check_path = requested_path.strip().lstrip('/').replace('\\', '/')
+            # 检查是否尝试访问 users 目录
+            if check_path == 'users' or check_path.startswith('users/'):
+                return None, "未登录用户不能访问 users 目录"
+        return requested_path, None
     
     user_id = session['user_id']
     username = session['username']
@@ -1168,11 +1176,20 @@ def serve_html(path=''):
             
             real_path = safe_path_join(HTML_ROOT_DIR, accessible_path)
         else:
-            # 未登录用户，只能访问登录页面或公开内容
-            # 但 users 目录需要登录
-            if path and path.startswith('users/'):
+            # 未登录用户：检查是否试图访问 users 目录
+            if path and path.strip():
+                check_path = path.strip().lstrip('/').replace('\\', '/')
+                if check_path == 'users' or check_path.startswith('users/'):
+                    # 返回 401 并提示需要登录
+                    return jsonify({'error': '请先登录后访问 users 目录', 'require_login': True}), 401
+            
+            # 未登录用户可以访问根目录和其他非 users 目录
+            accessible_path, redirect_msg = get_user_accessible_path(path)
+            if redirect_msg:
+                # 如果 get_user_accessible_path 返回了错误（尝试访问users），返回401
                 return jsonify({'error': '请先登录后访问 users 目录', 'require_login': True}), 401
-            real_path = safe_path_join(HTML_ROOT_DIR, path)
+            
+            real_path = safe_path_join(HTML_ROOT_DIR, accessible_path if accessible_path else '')
         
         if not os.path.exists(real_path):
             return "路径不存在", 404
@@ -1259,6 +1276,10 @@ def serve_html(path=''):
             })
         
         items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
+        
+        # 对于未登录用户，如果路径包含 users 目录，过滤掉 users 目录
+        if 'user_id' not in session:
+            items = [item for item in items if not (item['path'] == 'users' or item['path'].startswith('users/'))]
         
         initial_data = {
             'currentPath': current_path,
@@ -2349,10 +2370,12 @@ if __name__ == '__main__':
     print("="*60)
     
     print("\n🔒 权限控制:")
-    print("- 管理员 (admin) 可以操作所有文件")
-    print("- 普通用户只能操作 users/用户名/ 目录下的文件")
-    print("- 创建用户时会自动创建对应的文件夹")
-    print("- 普通用户登录后会自动跳转到自己的文件夹")
+    print("- 🌐 任何人都可以访问根目录（无需登录）")
+    print("- 🔐 未登录用户不能访问 users 目录")
+    print("- 👤 管理员 (admin) 可以操作所有文件")
+    print("- 👤 普通用户只能操作 users/用户名/ 目录下的文件")
+    print("- 📁 创建用户时会自动创建对应的文件夹")
+    print("- 🔄 普通用户登录后会自动跳转到自己的文件夹")
     print("\n🔒 安全提示:")
     print("- 请务必在生产环境中修改默认管理员密码")
     print("- 生产环境建议使用 HTTPS")
