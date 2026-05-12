@@ -20,4 +20,4 @@ rate_limit_default = 200 per day;50 per hour
 
 [proxy]
 enabled = true
-allowed_targets = http://localhost:5001,ws://localhost:5002,http://localhost:5200,http://localhost:8000,ws://localhost:8765,ws://192.168.1.1:8000,http://localhost:5003
+allowed_targets = http://localhost:5000, http://localhost:5001,ws://localhost:5002,http://localhost:5003,http://localhost:5004,http://localhost:5005,http://localhost:5200,http://localhost:8000,ws://localhost:8765,ws://192.168.1.1:8000,http://localhost:5003
