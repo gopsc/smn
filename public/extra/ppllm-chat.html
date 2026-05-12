@@ -915,7 +915,7 @@
                     throw new Error('未登录，请刷新页面重新登录');
                 }
                 const error = await response.json().catch(() => ({ error: response.statusText }));
-                throw new Error(error.error || 'Request failed');
+                throw new Error(error.error?.message || error.error || 'Request failed');
             }
             
             const data = await response.json();
@@ -933,6 +933,7 @@
             if (message.tool_calls && message.tool_calls.length > 0 && depth < maxDepth) {
                 addMessage('assistant', '正在调用工具...', message.tool_calls);
                 
+                // 【修复点】：将包含 reasoning_content 的 assistant 消息完整保存到历史记录
                 const updatedMessages = [...messages, message];
                 
                 for (const toolCall of message.tool_calls) {
@@ -952,6 +953,7 @@
                 await processWithToolsNormal(updatedMessages, model, maxTokens, supportsTools, supportsThinking, depth + 1);
             } else if (message.content) {
                 addMessage('assistant', message.content);
+                // 【修复点】：将包含 reasoning_content 的 assistant 消息完整保存
                 conversationHistory.push(message);
             }
         }
@@ -991,7 +993,7 @@
                     throw new Error('未登录，请刷新页面重新登录');
                 }
                 const error = await response.json().catch(() => ({ error: response.statusText }));
-                throw new Error(error.error || 'Request failed');
+                throw new Error(error.error?.message || error.error || 'Request failed');
             }
             
             const reader = response.body.getReader();
@@ -1076,14 +1078,21 @@
                     }
                 }));
                 
+                // 【修复点】：构建包含 reasoning_content 的 assistant 消息
                 const assistantMessage = {
                     role: 'assistant',
-                    content: null,
+                    content: fullContent || null,
                     tool_calls: toolCalls
                 };
                 
+                // 【修复点】：如果开启了 thinking，将 reasoning_content 也保存到消息中
+                if (enableThinking && supportsThinking && thinkingContent) {
+                    assistantMessage.reasoning_content = thinkingContent;
+                }
+                
                 addMessage('assistant', '正在调用工具...', toolCalls);
                 
+                // 【修复点】：将完整的 assistant 消息（含 reasoning_content）添加到历史
                 const updatedMessages = [...messages, assistantMessage];
                 
                 for (const toolCall of toolCalls) {
@@ -1103,7 +1112,11 @@
                 // 继续用普通模式处理后续对话（因为工具调用后的响应通常不需要流式）
                 await processWithToolsNormal(updatedMessages, model, maxTokens, supportsTools, supportsThinking, depth + 1);
             } else if (fullContent) {
+                // 【修复点】：构建包含 reasoning_content 的 assistant 消息
                 const assistantMessage = { role: 'assistant', content: fullContent };
+                if (enableThinking && supportsThinking && thinkingContent) {
+                    assistantMessage.reasoning_content = thinkingContent;
+                }
                 conversationHistory.push(assistantMessage);
             }
         }
